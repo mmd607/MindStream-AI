@@ -1,0 +1,83 @@
+from uuid import UUID
+
+from app.db.session import SessionLocal
+from app.models import GenerationRun
+
+
+def project_payload():
+    return {"name": "Study Planner", "description": "A planning tool for students to organize courses, tasks, and deadlines."}
+
+
+def test_health_and_validation(client):
+    assert client.get("/api/v1/health").json()["status"] == "ok"
+    invalid = client.post("/api/v1/projects", json={"name": "x", "description": "short"})
+    assert invalid.status_code == 422
+    assert client.post("/api/v1/projects", json={"name": "", "description": "A valid enough description for this request."}).status_code == 422
+    assert client.post("/api/v1/projects", json={"name": "Valid", "description": "x" * 10001}).status_code == 422
+
+
+def test_full_mock_generation_flow(client):
+    created = client.post("/api/v1/projects", json=project_payload())
+    assert created.status_code == 201
+    project_id = created.json()["id"]
+    assert client.get(f"/api/v1/projects/{project_id}").json()["status"] == "draft"
+    run = client.post(f"/api/v1/projects/{project_id}/analyze")
+    assert run.status_code == 200
+    assert run.json()["status"] == "completed"
+    detail = client.get(f"/api/v1/projects/{project_id}").json()
+    assert detail["status"] == "completed"
+    assert detail["requirement_count"] >= 3
+    assert detail["task_count"] >= 5
+    assert detail["document_count"] == 1
+    assert len(client.get(f"/api/v1/projects/{project_id}/requirements").json()) >= 3
+    assert client.get(f"/api/v1/projects/{project_id}/architecture").json()["style"] == "Modular monolith"
+    assert len(client.get(f"/api/v1/projects/{project_id}/database").json()) >= 3
+    tasks = client.get(f"/api/v1/projects/{project_id}/tasks").json()
+    assert all(task["task_key"] for task in tasks)
+    assert any(task["dependency_ids"] for task in tasks)
+    team = client.get(f"/api/v1/projects/{project_id}/team").json()
+    assert len(team) >= 5
+    assert any(role["task_count"] > 0 for role in team)
+    assert len(client.get(f"/api/v1/projects/{project_id}/documentation").json()) == 1
+    assert client.get(f"/api/v1/projects/{project_id}/generation-runs").json()[0]["status"] == "completed"
+    assert client.get(f"/api/v1/projects/{project_id}/export?format=markdown").headers["content-type"].startswith("text/markdown")
+    assert client.get(f"/api/v1/projects/{project_id}/export?format=json").headers["content-type"].startswith("application/json")
+
+
+def test_missing_project_and_bad_export(client):
+    missing = "00000000-0000-0000-0000-000000000000"
+    assert client.get(f"/api/v1/projects/{missing}").status_code == 404
+    assert client.get("/api/v1/projects/not-a-uuid").status_code == 422
+    assert client.get(f"/api/v1/projects/{missing}/export?format=xml").status_code in (400, 404, 422)
+
+
+def test_invalid_export_format_and_safe_generation_failure(client, monkeypatch):
+    created = client.post("/api/v1/projects", json=project_payload())
+    project_id = created.json()["id"]
+    assert client.get(f"/api/v1/projects/{project_id}/export?format=xml").status_code == 400
+
+    def fail_generation(*_args, **_kwargs):
+        raise RuntimeError("secret database path should not reach the client")
+
+    monkeypatch.setattr("app.services.planning_service.PlanningOrchestrator.run", fail_generation)
+    response = client.post(f"/api/v1/projects/{project_id}/analyze")
+    assert response.status_code == 422
+    assert "secret database path" not in response.text
+    runs = client.get(f"/api/v1/projects/{project_id}/generation-runs").json()
+    assert runs[0]["status"] == "failed"
+    assert "secret database path" not in (runs[0]["error_message"] or "")
+
+
+def test_duplicate_generation_is_rejected(client):
+    created = client.post("/api/v1/projects", json=project_payload())
+    project_id = UUID(created.json()["id"])
+    db = SessionLocal()
+    run = GenerationRun(project_id=project_id, run_type="full", status="running")
+    db.add(run)
+    db.commit()
+    try:
+        response = client.post(f"/api/v1/projects/{project_id}/analyze")
+        assert response.status_code == 409
+    finally:
+        db.delete(run)
+        db.commit()
