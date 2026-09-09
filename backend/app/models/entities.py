@@ -1,0 +1,154 @@
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.session import Base
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Project(TimestampMixin, Base):
+    __tablename__ = "projects"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    target_users: Mapped[list] = mapped_column(JSON, default=list)
+    preferred_stack: Mapped[list] = mapped_column(JSON, default=list)
+    team_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)
+    objective: Mapped[str] = mapped_column(Text, default="")
+    actors: Mapped[list] = mapped_column(JSON, default=list)
+    assumptions: Mapped[list] = mapped_column(JSON, default=list)
+    constraints: Mapped[list] = mapped_column(JSON, default=list)
+    risks: Mapped[list] = mapped_column(JSON, default=list)
+    open_questions: Mapped[list] = mapped_column(JSON, default=list)
+    requirements: Mapped[list["Requirement"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    architecture: Mapped["ArchitecturePlan | None"] = relationship(back_populates="project", cascade="all, delete-orphan", uselist=False)
+    entities: Mapped[list["DatabaseEntity"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    roles: Mapped[list["TeamRole"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    documents: Mapped[list["Document"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    generation_runs: Mapped[list["GenerationRun"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+
+class Requirement(Base):
+    __tablename__ = "requirements"
+    __table_args__ = (Index("ix_requirements_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    title: Mapped[str] = mapped_column(String(180), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), default="medium")
+    source: Mapped[str] = mapped_column(String(30), default="mock-provider")
+    project: Mapped[Project] = relationship(back_populates="requirements")
+
+
+class ArchitecturePlan(TimestampMixin, Base):
+    __tablename__ = "architecture_plans"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), unique=True, nullable=False)
+    style: Mapped[str] = mapped_column(String(100), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    components_json: Mapped[list] = mapped_column(JSON, default=list)
+    technologies_json: Mapped[list] = mapped_column(JSON, default=list)
+    communication_paths: Mapped[list] = mapped_column(JSON, default=list)
+    deployment_concept: Mapped[str] = mapped_column(Text, default="")
+    scalability_considerations: Mapped[list] = mapped_column(JSON, default=list)
+    project: Mapped[Project] = relationship(back_populates="architecture")
+
+
+class DatabaseEntity(Base):
+    __tablename__ = "database_entities"
+    __table_args__ = (Index("ix_database_entities_project_id", "project_id"), UniqueConstraint("project_id", "name"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    project: Mapped[Project] = relationship(back_populates="entities")
+    fields: Mapped[list["DatabaseField"]] = relationship(back_populates="entity", cascade="all, delete-orphan")
+
+
+class DatabaseField(Base):
+    __tablename__ = "database_fields"
+    __table_args__ = (Index("ix_database_fields_entity_id", "entity_id"), UniqueConstraint("entity_id", "name"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    entity_id: Mapped[UUID] = mapped_column(ForeignKey("database_entities.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    data_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    nullable: Mapped[bool] = mapped_column(Boolean, default=True)
+    primary_key: Mapped[bool] = mapped_column(Boolean, default=False)
+    unique: Mapped[bool] = mapped_column(Boolean, default=False)
+    default_value: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    foreign_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    entity: Mapped[DatabaseEntity] = relationship(back_populates="fields")
+
+
+class TeamRole(Base):
+    __tablename__ = "team_roles"
+    __table_args__ = (Index("ix_team_roles_project_id", "project_id"), UniqueConstraint("project_id", "name"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    project: Mapped[Project] = relationship(back_populates="roles")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="role")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (Index("ix_tasks_project_id", "project_id"), Index("ix_tasks_role_id", "role_id"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    parent_id: Mapped[UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+    task_key: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str] = mapped_column(String(180), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    task_type: Mapped[str] = mapped_column(String(30), default="task")
+    priority: Mapped[str] = mapped_column(String(20), default="medium")
+    status: Mapped[str] = mapped_column(String(30), default="todo")
+    effort: Mapped[int] = mapped_column(Integer, default=1)
+    acceptance_criteria: Mapped[list] = mapped_column(JSON, default=list)
+    role_id: Mapped[UUID | None] = mapped_column(ForeignKey("team_roles.id", ondelete="SET NULL"), nullable=True)
+    project: Mapped[Project] = relationship(back_populates="tasks")
+    role: Mapped[TeamRole | None] = relationship(back_populates="tasks")
+    parent: Mapped["Task | None"] = relationship(remote_side=[id])
+
+
+class Dependency(Base):
+    __tablename__ = "dependencies"
+    __table_args__ = (Index("ix_dependencies_task_id", "task_id"), UniqueConstraint("task_id", "depends_on_task_id"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    task_id: Mapped[UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    depends_on_task_id: Mapped[UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    __table_args__ = (Index("ix_documents_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    document_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    project: Mapped[Project] = relationship(back_populates="documents")
+
+
+class GenerationRun(Base):
+    __tablename__ = "generation_runs"
+    __table_args__ = (Index("ix_generation_runs_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    run_type: Mapped[str] = mapped_column(String(40), default="full")
+    status: Mapped[str] = mapped_column(String(30), default="queued")
+    current_stage: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project: Mapped[Project] = relationship(back_populates="generation_runs")
