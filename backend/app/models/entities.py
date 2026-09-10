@@ -34,6 +34,140 @@ class Project(TimestampMixin, Base):
     tasks: Mapped[list["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     documents: Mapped[list["Document"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     generation_runs: Mapped[list["GenerationRun"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    workspace_metadata: Mapped["ProjectWorkspaceMetadata | None"] = relationship(back_populates="project", cascade="all, delete-orphan", uselist=False)
+    memberships: Mapped[list["ProjectMembership"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    reports: Mapped[list["Report"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    activities: Mapped[list["Activity"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    milestones: Mapped[list["Milestone"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    project_risks: Mapped[list["ProjectRisk"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    features: Mapped[list["ProjectFeature"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    apis: Mapped[list["ProjectAPI"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+
+class ProjectWorkspaceMetadata(Base):
+    __tablename__ = "project_workspace_metadata"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), unique=True, nullable=False)
+    domain: Mapped[str] = mapped_column(String(80), default="Software", nullable=False)
+    status_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status_description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    expected_timeline: Mapped[str] = mapped_column(String(120), default="12 weeks", nullable=False)
+    health_score: Mapped[int] = mapped_column(Integer, default=78, nullable=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    executive_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    project: Mapped[Project] = relationship(back_populates="workspace_metadata")
+
+
+class Person(TimestampMixin, Base):
+    __tablename__ = "people"
+    __table_args__ = (UniqueConstraint("email"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(180), nullable=False)
+    title: Mapped[str] = mapped_column(String(120), default="Project contributor", nullable=False)
+    avatar: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    memberships: Mapped[list["ProjectMembership"]] = relationship(back_populates="person", cascade="all, delete-orphan")
+
+
+class ProjectMembership(Base):
+    __tablename__ = "project_memberships"
+    __table_args__ = (Index("ix_project_memberships_project_id", "project_id"), UniqueConstraint("project_id", "person_id"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    person_id: Mapped[UUID] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    role_title: Mapped[str] = mapped_column(String(100), nullable=False)
+    workload_percent: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    modules_json: Mapped[list] = mapped_column(JSON, default=list)
+    project: Mapped[Project] = relationship(back_populates="memberships")
+    person: Mapped[Person] = relationship(back_populates="memberships")
+
+
+class Report(TimestampMixin, Base):
+    __tablename__ = "reports"
+    __table_args__ = (Index("ix_reports_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    report_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    generated_by: Mapped[str] = mapped_column(String(40), default="mock-ai", nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="generated", nullable=False)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    project: Mapped[Project] = relationship(back_populates="reports")
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+    __table_args__ = (Index("ix_activities_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    actor_name: Mapped[str] = mapped_column(String(120), default="MindStream AI", nullable=False)
+    action: Mapped[str] = mapped_column(String(180), nullable=False)
+    category: Mapped[str] = mapped_column(String(40), default="project", nullable=False)
+    details: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    project: Mapped[Project] = relationship(back_populates="activities")
+
+
+class Milestone(Base):
+    __tablename__ = "milestones"
+    __table_args__ = (Index("ix_milestones_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="planned", nullable=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    due_label: Mapped[str] = mapped_column(String(80), default="Next sprint", nullable=False)
+    project: Mapped[Project] = relationship(back_populates="milestones")
+
+
+class ProjectRisk(Base):
+    __tablename__ = "project_risks"
+    __table_args__ = (Index("ix_project_risks_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(120), default="Unassigned", nullable=False)
+    project: Mapped[Project] = relationship(back_populates="project_risks")
+
+
+class ProjectFeature(Base):
+    __tablename__ = "project_features"
+    __table_args__ = (Index("ix_project_features_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    requirement_id: Mapped[UUID | None] = mapped_column(ForeignKey("requirements.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    module_name: Mapped[str] = mapped_column(String(120), default="Core platform", nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="planned", nullable=False)
+    task_key: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    project: Mapped[Project] = relationship(back_populates="features")
+    requirement: Mapped["Requirement | None"] = relationship()
+
+
+class ProjectAPI(Base):
+    __tablename__ = "project_apis"
+    __table_args__ = (Index("ix_project_apis_project_id", "project_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    method: Mapped[str] = mapped_column(String(10), nullable=False)
+    path: Mapped[str] = mapped_column(String(180), nullable=False)
+    module: Mapped[str] = mapped_column(String(120), nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    request_schema: Mapped[str] = mapped_column(Text, default="JSON", nullable=False)
+    response_schema: Mapped[str] = mapped_column(Text, default="JSON", nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(120), default="Unassigned", nullable=False)
+    feature_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    task_key: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="specified", nullable=False)
+    project: Mapped[Project] = relationship(back_populates="apis")
 
 
 class Requirement(Base):

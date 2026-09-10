@@ -1,0 +1,17 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Card, Empty, ErrorState, Loading, PageIntro, StatusBadge } from "@/components/ui";
+import { api } from "@/lib/api";
+import type { Report } from "@/types";
+
+export default function ReportsPage() {
+  const { id } = useParams<{ id: string }>(); const [reports, setReports] = useState<Report[] | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [filter, setFilter] = useState("all");
+  useEffect(() => { api.reports(id).then(setReports).catch(value => setError(value instanceof Error ? value.message : "Reports unavailable")); }, [id]);
+  async function generate() { setBusy(true); setError(""); try { const report = await api.generateReport(id); setReports(current => current ? [report, ...current] : [report]); } catch (value) { setError(value instanceof Error ? value.message : "Report generation failed"); } finally { setBusy(false); } }
+  const visible = useMemo(() => reports?.filter(item => filter === "all" || item.status === filter || item.report_type === filter) ?? [], [reports, filter]);
+  if (error) return <div className="py-10"><ErrorState message={error} /></div>; if (!reports) return <div className="py-10"><Loading /></div>;
+  return <div className="py-10"><PageIntro eyebrow="Project intelligence" title="Reports" description="Deterministic reports built from the current blueprint, delivery state, and ownership data." action={<button onClick={generate} disabled={busy} className="focus-ring rounded-xl bg-[var(--ink)] px-4 py-3 text-sm font-bold text-[var(--panel)] disabled:opacity-60">{busy ? "Generating..." : "+ Generate report"}</button>} /><div className="mb-5 flex items-center gap-2"><span className="muted text-sm">Filter:</span><select value={filter} onChange={event => setFilter(event.target.value)} className="focus-ring rounded-lg border border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-sm"><option value="all">All reports</option><option value="generated">Generated</option><option value="archived">Archived</option><option value="architecture">Architecture</option><option value="health">Health</option><option value="risk">Risk</option></select></div>{reports.length === 0 ? <Empty text="No reports yet. Generate your first project health report." /> : visible.length === 0 ? <Empty text="No reports match this filter." /> : <div className="grid gap-4 md:grid-cols-2">{visible.map(report => <Link href={`/project/${id}/reports/${report.id}`} key={report.id} className="focus-ring"><Card title={report.title} action={report.score ? <span className="text-2xl font-bold">{report.score}</span> : <StatusBadge status={report.status} />}><p className="eyebrow">{report.report_type}</p><p className="muted mt-3 text-sm leading-6">{report.summary}</p><div className="muted mt-5 flex justify-between text-xs"><span>{report.generated_by}</span><span>{new Date(report.generated_at).toLocaleDateString()}</span></div></Card></Link>)}</div>}</div>;
+}

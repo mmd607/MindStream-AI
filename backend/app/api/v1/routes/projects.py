@@ -5,7 +5,7 @@ from fastapi.responses import Response as RawResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.api import AnalyzeOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut, ProjectCreate, ProjectDetail, ProjectSummary, RequirementOut, TaskOut, TeamRoleOut
+from app.schemas.api import APIOut, ActivityOut, AnalyzeOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, FeatureOut, GenerationRunOut, MilestoneOut, PersonOut, ProjectComparison, ProjectCreate, ProjectDetail, ProjectMemberOut, ProjectStatusUpdate, ProjectSummary, ReportOut, ReportUpdate, RequirementOut, RiskOut, TaskOut, TeamRoleOut, TraceabilityLink, WorkspaceOut
 from app.services.planning_service import PlanningService
 from app.services.project_service import ProjectService
 
@@ -18,14 +18,49 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     return service.create(db, data)
 
 
+@router.get("/workspace", response_model=WorkspaceOut)
+def workspace(db: Session = Depends(get_db)):
+    return service.workspace(db)
+
+
+@router.get("/people", response_model=list[PersonOut])
+def list_people(search: str = Query(default="", max_length=120), db: Session = Depends(get_db)):
+    return service.people(db, search)
+
+
+@router.get("/people/{person_id}", response_model=PersonOut)
+def get_person(person_id: UUID, db: Session = Depends(get_db)):
+    return service.person(db, person_id)
+
+
+@router.get("/reports/{report_id}", response_model=ReportOut)
+def get_report(report_id: UUID, db: Session = Depends(get_db)):
+    return service.report(db, report_id)
+
+
+@router.patch("/reports/{report_id}", response_model=ReportOut)
+def update_report(report_id: UUID, data: ReportUpdate, db: Session = Depends(get_db)):
+    return service.update_report(db, report_id, data.status)
+
+
+@router.get("/compare", response_model=list[ProjectComparison])
+def compare_projects(ids: list[UUID] | None = Query(default=None), db: Session = Depends(get_db)):
+    return service.compare(db, ids or [])
+
+
 @router.get("", response_model=list[ProjectSummary])
-def list_projects(db: Session = Depends(get_db)):
-    return service.list(db)
+def list_projects(search: str = Query(default="", max_length=120), status: str = Query(default="", max_length=30), domain: str = Query(default="", max_length=80), db: Session = Depends(get_db)):
+    return service.list(db, search, status, domain)
 
 
 @router.get("/{project_id}", response_model=ProjectDetail)
 def get_project(project_id: UUID, db: Session = Depends(get_db)):
     return service.detail(db, project_id)
+
+
+@router.patch("/{project_id}", response_model=ProjectSummary)
+def update_project_status(project_id: UUID, data: ProjectStatusUpdate, db: Session = Depends(get_db)):
+    return service.update_status(db, project_id, data.status, data.reason)
 
 
 @router.delete("/{project_id}", status_code=204)
@@ -43,6 +78,21 @@ def analyze_project(project_id: UUID, db: Session = Depends(get_db)):
 @router.get("/{project_id}/requirements", response_model=list[RequirementOut])
 def get_requirements(project_id: UUID, db: Session = Depends(get_db)):
     return service.requirements(db, project_id)
+
+
+@router.get("/{project_id}/features", response_model=list[FeatureOut])
+def get_features(project_id: UUID, db: Session = Depends(get_db)):
+    return service.features(db, project_id)
+
+
+@router.get("/{project_id}/traceability", response_model=list[TraceabilityLink])
+def get_traceability(project_id: UUID, db: Session = Depends(get_db)):
+    return service.traceability(db, project_id)
+
+
+@router.get("/{project_id}/apis", response_model=list[APIOut])
+def get_apis(project_id: UUID, search: str = Query(default="", max_length=120), method: str = Query(default="", max_length=10), module: str = Query(default="", max_length=120), db: Session = Depends(get_db)):
+    return service.apis(db, project_id, search, method, module)
 
 
 @router.get("/{project_id}/architecture", response_model=ArchitectureOut | None)
@@ -69,6 +119,37 @@ def regenerate_tasks(project_id: UUID, db: Session = Depends(get_db)):
 @router.get("/{project_id}/team", response_model=list[TeamRoleOut])
 def get_team(project_id: UUID, db: Session = Depends(get_db)):
     return service.roles(db, project_id)
+
+
+@router.get("/{project_id}/people", response_model=list[ProjectMemberOut])
+def get_people(project_id: UUID, db: Session = Depends(get_db)):
+    return service.members(db, project_id)
+
+
+@router.get("/{project_id}/reports", response_model=list[ReportOut])
+def get_reports(project_id: UUID, db: Session = Depends(get_db), report_type: str = Query(default="", max_length=50), status: str = Query(default="", max_length=30)):
+    reports = service.reports(db, project_id)
+    return [item for item in reports if (not report_type or item.report_type == report_type) and (not status or item.status == status)]
+
+
+@router.post("/{project_id}/reports", response_model=ReportOut, status_code=201)
+def generate_report(project_id: UUID, report_type: str = Query(default="health", max_length=50), db: Session = Depends(get_db)):
+    return service.generate_report(db, project_id, report_type)
+
+
+@router.get("/{project_id}/activities", response_model=list[ActivityOut])
+def get_activities(project_id: UUID, db: Session = Depends(get_db)):
+    return service.activities(db, project_id)
+
+
+@router.get("/{project_id}/milestones", response_model=list[MilestoneOut])
+def get_milestones(project_id: UUID, db: Session = Depends(get_db)):
+    return service.milestones(db, project_id)
+
+
+@router.get("/{project_id}/risks", response_model=list[RiskOut])
+def get_risks(project_id: UUID, db: Session = Depends(get_db)):
+    return service.risks(db, project_id)
 
 
 @router.get("/{project_id}/documentation", response_model=list[DocumentOut])

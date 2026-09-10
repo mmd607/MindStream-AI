@@ -28,6 +28,8 @@ def test_full_mock_generation_flow(client):
     assert detail["status"] == "completed"
     assert detail["requirement_count"] >= 3
     assert detail["task_count"] >= 5
+    assert detail["feature_count"] >= 3
+    assert detail["api_count"] >= 3
     assert detail["document_count"] == 1
     assert len(client.get(f"/api/v1/projects/{project_id}/requirements").json()) >= 3
     assert client.get(f"/api/v1/projects/{project_id}/architecture").json()["style"] == "Modular monolith"
@@ -81,3 +83,35 @@ def test_duplicate_generation_is_rejected(client):
     finally:
         db.delete(run)
         db.commit()
+
+
+def test_workspace_seed_and_intelligence_relationships(client):
+    workspace = client.get("/api/v1/projects/workspace")
+    assert workspace.status_code == 200
+    payload = workspace.json()
+    assert len(payload["projects"]) >= 6
+    assert payload["metrics"]["people"] >= 3
+    sara = next(person for person in payload["people"] if person["name"] == "Sara Rahimi")
+    assert sara["project_count"] >= 2
+    project = next(item for item in payload["projects"] if item["name"] == "Food Delivery Platform")
+    project_id = project["id"]
+    assert client.get(f"/api/v1/projects/{project_id}/people").json()
+    assert client.get(f"/api/v1/projects/{project_id}/risks").json()
+    assert client.get(f"/api/v1/projects/{project_id}/features").json()
+    assert client.get(f"/api/v1/projects/{project_id}/apis").json()
+    traceability = client.get(f"/api/v1/projects/{project_id}/traceability")
+    assert traceability.status_code == 200
+    assert all(item["feature_name"] for item in traceability.json())
+    report = client.post(f"/api/v1/projects/{project_id}/reports?report_type=architecture")
+    assert report.status_code == 201
+    assert report.json()["project_id"] == project_id
+    report_id = report.json()["id"]
+    assert client.get(f"/api/v1/projects/reports/{report_id}").json()["title"] == "Architecture Analysis"
+    assert client.patch(f"/api/v1/projects/reports/{report_id}", json={"status": "archived"}).json()["status"] == "archived"
+    other_project = next(item for item in payload["projects"] if item["id"] != project_id)
+    comparison = client.get(f"/api/v1/projects/compare?ids={project_id}&ids={other_project['id']}")
+    assert comparison.status_code == 200
+    assert len(comparison.json()) == 2
+    updated = client.patch(f"/api/v1/projects/{project_id}", json={"status": "planning", "reason": "Reviewing integration scope"})
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "planning"

@@ -19,6 +19,12 @@ class ProjectCreate(BaseModel):
     target_users: list[str] = Field(default_factory=list, max_length=20)
     preferred_stack: list[str] = Field(default_factory=list, max_length=30)
     team_size: int | None = Field(default=None, ge=1, le=100)
+    domain: str = Field(default="Software", max_length=80)
+    objective: str = Field(default="", max_length=2000)
+    constraints: list[str] = Field(default_factory=list, max_length=20)
+    important_risks: list[str] = Field(default_factory=list, max_length=20)
+    expected_timeline: str = Field(default="12 weeks", max_length=120)
+    owner_name: str = Field(default="Alex Morgan", max_length=120)
 
     @field_validator("name", "description")
     @classmethod
@@ -26,6 +32,11 @@ class ProjectCreate(BaseModel):
         if any(ord(c) < 32 and c not in "\n\t" for c in value):
             raise ValueError("control characters are not allowed")
         return value.strip()
+
+
+class ProjectStatusUpdate(BaseModel):
+    status: Literal["draft", "planning", "active", "at_risk", "paused", "completed", "archived"]
+    reason: str = Field(default="", max_length=1000)
 
 
 class ProjectSummary(APIModel):
@@ -36,6 +47,16 @@ class ProjectSummary(APIModel):
     team_size: int | None
     created_at: datetime
     updated_at: datetime
+    domain: str = "Software"
+    status_label: str = "Draft"
+    status_reason: str = ""
+    health_score: int = 0
+    progress: int = 0
+    team_member_count: int = 0
+    task_count: int = 0
+    report_count: int = 0
+    feature_count: int = 0
+    api_count: int = 0
 
 
 class ProjectDetail(ProjectSummary):
@@ -54,6 +75,10 @@ class ProjectDetail(ProjectSummary):
     constraints: list[str] = []
     risks: list[str] = []
     open_questions: list[str] = []
+    executive_summary: str = ""
+    expected_timeline: str = "12 weeks"
+    feature_count: int = 0
+    api_count: int = 0
 
 
 class RequirementOut(APIModel):
@@ -122,6 +147,9 @@ class TaskOut(APIModel):
     role_id: UUID | None
     role_name: str | None = None
     dependency_ids: list[UUID] = []
+    owner_name: str | None = None
+    module_name: str | None = None
+    feature_name: str | None = None
 
 
 class DocumentOut(APIModel):
@@ -148,3 +176,138 @@ class AnalyzeOut(BaseModel):
     run_id: UUID
     status: str
     message: str
+
+
+class PersonOut(APIModel):
+    id: UUID
+    name: str
+    email: str
+    title: str
+    avatar: str | None = None
+    project_count: int = 0
+    active_task_count: int = 0
+    completed_task_count: int = 0
+    projects: list[dict] = []
+
+
+class ProjectMemberOut(APIModel):
+    id: UUID
+    person_id: UUID
+    name: str
+    email: str
+    title: str
+    role_title: str
+    workload_percent: int
+    modules: list[str] = []
+    assigned_task_count: int = 0
+    completed_task_count: int = 0
+
+
+class ReportOut(APIModel):
+    id: UUID
+    project_id: UUID
+    report_type: str
+    title: str
+    summary: str
+    generated_at: datetime
+    generated_by: str
+    status: str
+    score: int | None
+    content: str
+    metadata_json: dict = {}
+
+
+class ReportUpdate(BaseModel):
+    status: Literal["generated", "archived"]
+
+
+class ActivityOut(APIModel):
+    id: UUID
+    project_id: UUID
+    actor_name: str
+    action: str
+    category: str
+    details: str
+    created_at: datetime
+
+
+class MilestoneOut(APIModel):
+    id: UUID
+    project_id: UUID
+    title: str
+    description: str
+    status: str
+    progress: int
+    due_label: str
+
+
+class RiskOut(APIModel):
+    id: UUID
+    project_id: UUID
+    title: str
+    description: str
+    severity: str
+    status: str
+    owner_name: str
+
+
+class FeatureOut(APIModel):
+    id: UUID
+    project_id: UUID
+    requirement_id: UUID | None
+    name: str
+    description: str
+    module_name: str
+    status: str
+    task_key: str | None
+
+
+class APIOut(APIModel):
+    id: UUID
+    project_id: UUID
+    method: str
+    path: str
+    module: str
+    purpose: str
+    request_schema: str
+    response_schema: str
+    owner_name: str
+    feature_name: str | None
+    task_key: str | None
+    status: str
+
+
+class TraceabilityLink(BaseModel):
+    requirement_id: UUID
+    requirement_title: str
+    feature_id: UUID | None
+    feature_name: str | None
+    module_name: str | None
+    api_id: UUID | None
+    api_path: str | None
+    task_key: str | None
+    task_title: str | None
+    owner_name: str | None
+    coverage: str
+
+
+class ProjectComparison(BaseModel):
+    id: UUID
+    name: str
+    status: str
+    health_score: int
+    progress: int
+    requirements: int
+    features: int
+    modules: int
+    apis: int
+    tasks: int
+    team: int
+    risks: int
+
+
+class WorkspaceOut(BaseModel):
+    projects: list[ProjectSummary]
+    people: list[PersonOut]
+    recent_activity: list[ActivityOut]
+    metrics: dict[str, int]

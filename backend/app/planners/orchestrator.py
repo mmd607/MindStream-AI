@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.factory import get_provider
 from app.ai.schemas import Blueprint
-from app.models import ArchitecturePlan, DatabaseEntity, DatabaseField, Dependency, Document, GenerationRun, Project, Requirement, Task, TeamRole
+from app.models import ArchitecturePlan, DatabaseEntity, DatabaseField, Dependency, Document, GenerationRun, Project, ProjectAPI, ProjectFeature, Requirement, Task, TeamRole
 from app.planners.documentation import markdown_for_blueprint
 from app.planners.validator import validate_blueprint
 
@@ -45,11 +45,14 @@ class PlanningOrchestrator:
         task_ids = list(db.scalars(select(Task.id).where(Task.project_id == project.id)).all())
         if task_ids:
             db.execute(delete(Dependency).where((Dependency.task_id.in_(task_ids)) | (Dependency.depends_on_task_id.in_(task_ids))))
-        for model in (Requirement, ArchitecturePlan, DatabaseEntity, TeamRole, Task, Document):
+        for model in (Requirement, ArchitecturePlan, DatabaseEntity, TeamRole, Task, Document, ProjectFeature, ProjectAPI):
             db.execute(delete(model).where(model.project_id == project.id))
         db.flush()
+        requirement_records = []
         for item in blueprint.functional_requirements + blueprint.non_functional_requirements:
-            db.add(Requirement(project_id=project.id, category=item.category, title=item.title, description=item.description, priority=item.priority, source=source))
+            record = Requirement(project_id=project.id, category=item.category, title=item.title, description=item.description, priority=item.priority, source=source)
+            db.add(record)
+            requirement_records.append(record)
         db.add(ArchitecturePlan(project_id=project.id, style=blueprint.architecture_style, rationale=blueprint.architecture_rationale, components_json=[item.model_dump() for item in blueprint.components], technologies_json=[item.model_dump() for item in blueprint.technologies], communication_paths=blueprint.communication_paths, deployment_concept=blueprint.deployment_concept, scalability_considerations=blueprint.scalability_considerations))
         for entity in blueprint.entities:
             record = DatabaseEntity(project_id=project.id, name=entity.name, description=entity.description)
@@ -68,5 +71,13 @@ class PlanningOrchestrator:
         for item in blueprint.tasks:
             for dependency in item.depends_on:
                 db.add(Dependency(task_id=task_records[item.key].id, depends_on_task_id=task_records[dependency].id))
+        db.flush()
+        components = [item.name for item in blueprint.components] or ["Core platform"]
+        for index, requirement in enumerate(requirement_records):
+            feature = ProjectFeature(project_id=project.id, requirement_id=requirement.id, name=f"{requirement.title} workflow", description=requirement.description, module_name=components[index % len(components)], status="planned", task_key=blueprint.tasks[index % len(blueprint.tasks)].key if blueprint.tasks else None)
+            db.add(feature)
+        for index, module in enumerate(blueprint.api_modules):
+            task = blueprint.tasks[index % len(blueprint.tasks)] if blueprint.tasks else None
+            db.add(ProjectAPI(project_id=project.id, method=["GET", "POST", "PATCH"][index % 3], path=f"/api/v1/{module.lower().replace(' ', '-')}", module=module, purpose=f"Support {module.lower()} workflows for the project.", request_schema="JSON", response_schema="JSON", owner_name=task.role if task else "Unassigned", feature_name=f"{requirement_records[index % len(requirement_records)].title} workflow" if requirement_records else None, task_key=task.key if task else None, status="specified"))
         markdown = markdown_for_blueprint(project.name, project.description, blueprint)
         db.add(Document(project_id=project.id, document_type="project_blueprint", content=markdown, version=1))
