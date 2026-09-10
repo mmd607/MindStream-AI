@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Activity, Milestone, Person, Project, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report, Task, TaskAssignment
+from app.models import Activity, Milestone, Person, Project, ProjectFeature, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report, Task, TaskAssignment
 from app.planners.orchestrator import PlanningOrchestrator
 from app.models import ArchitecturePlan, GenerationRun
 
@@ -79,6 +79,11 @@ def seed_demo_data(db: Session) -> None:
         for index, task in enumerate(tasks):
             if memberships and task.id not in assigned_task_ids:
                 db.add(TaskAssignment(task_id=task.id, person_id=memberships[index % len(memberships)].person_id))
+        feature_records = list(db.scalars(select(ProjectFeature).where(ProjectFeature.project_id == project.id).order_by(ProjectFeature.name)).all())
+        api_modules = list(dict.fromkeys(item.module for item in project.apis))
+        if feature_records and api_modules:
+            for index, feature in enumerate(feature_records):
+                feature.module_name = api_modules[index % len(api_modules)]
         if not db.scalar(select(Milestone.id).where(Milestone.project_id == project.id)):
             db.add_all([
                 Milestone(project_id=project.id, title="Scope and discovery", description="Align users, workflows, and success measures.", status="done", progress=100, due_label="Complete", owner_name=member_names[0], related_task_keys=["T1"]),

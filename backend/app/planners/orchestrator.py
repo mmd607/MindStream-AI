@@ -78,7 +78,7 @@ class PlanningOrchestrator:
             if memberships:
                 db.add(TaskAssignment(task_id=task.id, person_id=memberships[index % len(memberships)].person_id))
         db.flush()
-        components = [item.name for item in blueprint.components] or ["Core platform"]
+        components = blueprint.api_modules or [item.name for item in blueprint.components] or ["Core platform"]
         for index, requirement in enumerate(requirement_records):
             feature = ProjectFeature(project_id=project.id, requirement_id=requirement.id, name=f"{requirement.title} workflow", description=requirement.description, module_name=components[index % len(components)], status="planned", task_key=blueprint.tasks[index % len(blueprint.tasks)].key if blueprint.tasks else None)
             db.add(feature)
