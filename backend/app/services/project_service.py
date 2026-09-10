@@ -5,26 +5,54 @@ import re
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import ArchitecturePlan, DatabaseEntity, Document, GenerationRun, Project, Requirement, Task, TeamRole
-from app.schemas.api import ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut, ProjectDetail, ProjectSummary, RequirementOut, TaskOut, TeamRoleOut
+from app.models import (
+    Activity, ArchitecturePlan, DatabaseEntity, Document, GenerationRun, Milestone,
+    Person, Project, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report,
+    Requirement, Task, TeamRole,
+)
+from app.schemas.api import (
+    ActivityOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut,
+    MilestoneOut, PersonOut, ProjectCreate, ProjectDetail, ProjectMemberOut,
+    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut,
+)
+
+
+STATUS_LABELS = {"draft": "Draft", "planning": "Planning", "active": "Active", "at_risk": "At risk", "paused": "Paused", "completed": "Completed", "archived": "Archived"}
 
 
 class ProjectService:
-    def create(self, db: Session, data) -> ProjectSummary:
-        project = Project(**data.model_dump(), status="draft")
+    def create(self, db: Session, data: ProjectCreate) -> ProjectSummary:
+        project = Project(name=data.name, description=data.description, target_users=data.target_users, preferred_stack=data.preferred_stack, team_size=data.team_size, status="draft", objective=data.objective, constraints=data.constraints, risks=data.important_risks)
         db.add(project)
+        db.flush()
+        db.add(ProjectWorkspaceMetadata(project_id=project.id, domain=data.domain, expected_timeline=data.expected_timeline, status_description="Ready for analysis"))
+        owner = self._get_or_create_person(db, data.owner_name, f"{self._slug(data.owner_name)}@example.local", "Project owner")
+        db.add(ProjectMembership(project_id=project.id, person_id=owner.id, role_title="Project Manager", workload_percent=40, modules_json=["Scope", "Milestones"]))
+        db.add(Activity(project_id=project.id, actor_name=data.owner_name, action="Created project workspace", category="project", details="Project context is ready for blueprint analysis."))
         db.commit()
         db.refresh(project)
-        return ProjectSummary.model_validate(project)
+        return self._summary(project)
 
-    def list(self, db: Session) -> list[ProjectSummary]:
-        return [ProjectSummary.model_validate(item) for item in db.scalars(select(Project).order_by(Project.created_at.desc())).all()]
+    def list(self, db: Session, search: str = "", status: str = "", domain: str = "") -> list[ProjectSummary]:
+        query = select(Project).options(selectinload(Project.workspace_metadata), selectinload(Project.memberships), selectinload(Project.tasks), selectinload(Project.reports)).order_by(Project.created_at.desc())
+        if search:
+            query = query.where(Project.name.ilike(f"%{search}%"))
+        if status:
+            query = query.where(Project.status == status)
+        projects = db.scalars(query).all()
+        if domain:
+            projects = [item for item in projects if (item.workspace_metadata.domain if item.workspace_metadata else "Software").lower() == domain.lower()]
+        return [self._summary(item) for item in projects]
+
+    def _summary(self, project: Project) -> ProjectSummary:
+        metadata = project.workspace_metadata
+        return ProjectSummary.model_validate({"id": project.id, "name": project.name, "description": project.description, "status": project.status, "team_size": project.team_size, "created_at": project.created_at, "updated_at": project.updated_at, "domain": metadata.domain if metadata else "Software", "status_label": STATUS_LABELS.get(project.status, project.status.replace("_", " ").title()), "status_reason": metadata.status_reason if metadata else "", "health_score": metadata.health_score if metadata else self._health(project), "progress": metadata.progress if metadata else self._progress(project), "team_member_count": len(project.memberships) if "memberships" in project.__dict__ else 0, "task_count": len(project.tasks) if "tasks" in project.__dict__ else 0, "report_count": len(project.reports) if "reports" in project.__dict__ else 0})
 
     def get(self, db: Session, project_id: UUID) -> Project:
-        project = db.scalar(select(Project).where(Project.id == project_id))
+        project = db.scalar(select(Project).options(selectinload(Project.workspace_metadata)).where(Project.id == project_id))
         if not project:
             raise HTTPException(status_code=404, detail={"code": "project_not_found", "message": "Project not found"})
         return project
@@ -33,7 +61,9 @@ class ProjectService:
         project = self.get(db, project_id)
         latest_run = db.scalar(select(GenerationRun).where(GenerationRun.project_id == project.id).order_by(GenerationRun.started_at.desc()))
         architecture = db.scalar(select(ArchitecturePlan).where(ArchitecturePlan.project_id == project.id))
-        return ProjectDetail.model_validate({**ProjectSummary.model_validate(project).model_dump(), "target_users": project.target_users, "preferred_stack": project.preferred_stack, "requirement_count": len(project.requirements), "component_count": len(architecture.components_json) if architecture else 0, "entity_count": len(project.entities), "task_count": len(project.tasks), "role_count": len(project.roles), "document_count": len(project.documents), "generation_status": latest_run.status if latest_run else None, "objective": project.objective, "actors": project.actors, "assumptions": project.assumptions, "constraints": project.constraints, "risks": project.risks, "open_questions": project.open_questions})
+        metadata = project.workspace_metadata
+        summary = self._summary(project).model_dump()
+        return ProjectDetail.model_validate({**summary, "target_users": project.target_users or [], "preferred_stack": project.preferred_stack or [], "requirement_count": len(project.requirements), "component_count": len(architecture.components_json) if architecture else 0, "entity_count": len(project.entities), "task_count": len(project.tasks), "role_count": len(project.roles), "document_count": len(project.documents), "generation_status": latest_run.status if latest_run else None, "objective": project.objective or "", "actors": project.actors or [], "assumptions": project.assumptions or [], "constraints": project.constraints or [], "risks": project.risks or [], "open_questions": project.open_questions or [], "executive_summary": metadata.executive_summary if metadata else "", "expected_timeline": metadata.expected_timeline if metadata else "12 weeks"})
 
     def delete(self, db: Session, project_id: UUID) -> None:
         project = self.get(db, project_id)
@@ -56,7 +86,7 @@ class ProjectService:
 
     def tasks(self, db: Session, project_id: UUID) -> list[TaskOut]:
         self.get(db, project_id)
-        items = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id).order_by(Task.id)).all()
+        items = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id).order_by(Task.task_key, Task.id)).all()
         ids = [item.id for item in items]
         from app.models.entities import Dependency
         dependencies = db.scalars(select(Dependency).where(Dependency.task_id.in_(ids))).all() if ids else []
@@ -78,19 +108,108 @@ class ProjectService:
         self.get(db, project_id)
         return [GenerationRunOut.model_validate(x) for x in db.scalars(select(GenerationRun).where(GenerationRun.project_id == project_id).order_by(GenerationRun.started_at.desc())).all()]
 
+    def members(self, db: Session, project_id: UUID) -> list[ProjectMemberOut]:
+        self.get(db, project_id)
+        memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id).order_by(ProjectMembership.role_title)).all()
+        tasks = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id)).all()
+        return [ProjectMemberOut.model_validate({"id": item.id, "person_id": item.person_id, "name": item.person.name, "email": item.person.email, "title": item.person.title, "role_title": item.role_title, "workload_percent": item.workload_percent, "modules": item.modules_json or [], "assigned_task_count": sum(1 for task in tasks if task.role and task.role.name == item.role_title), "completed_task_count": sum(1 for task in tasks if task.role and task.role.name == item.role_title and task.status == "done")}) for item in memberships]
+
+    def people(self, db: Session, search: str = "") -> list[PersonOut]:
+        query = select(Person).options(selectinload(Person.memberships).selectinload(ProjectMembership.project)).order_by(Person.name)
+        if search:
+            query = query.where(Person.name.ilike(f"%{search}%"))
+        result = []
+        for person in db.scalars(query).all():
+            memberships = person.memberships
+            project_ids = [item.project_id for item in memberships]
+            tasks = db.scalars(select(Task).where(Task.project_id.in_(project_ids))).all() if project_ids else []
+            result.append(PersonOut.model_validate({"id": person.id, "name": person.name, "email": person.email, "title": person.title, "avatar": person.avatar, "project_count": len(memberships), "active_task_count": sum(1 for task in tasks if task.status not in ("done", "completed")), "completed_task_count": sum(1 for task in tasks if task.status in ("done", "completed")), "projects": [{"id": item.project.id, "name": item.project.name, "status": item.project.status} for item in memberships]}))
+        return result
+
+    def person(self, db: Session, person_id: UUID) -> PersonOut:
+        if not db.scalar(select(Person.id).where(Person.id == person_id)):
+            raise HTTPException(status_code=404, detail={"code": "person_not_found", "message": "Person not found"})
+        return next(item for item in self.people(db) if item.id == person_id)
+
+    def reports(self, db: Session, project_id: UUID) -> list[ReportOut]:
+        self.get(db, project_id)
+        return [self._report_out(item) for item in db.scalars(select(Report).where(Report.project_id == project_id).order_by(Report.created_at.desc())).all()]
+
+    def report(self, db: Session, report_id: UUID) -> ReportOut:
+        item = db.get(Report, report_id)
+        if not item:
+            raise HTTPException(status_code=404, detail={"code": "report_not_found", "message": "Report not found"})
+        return self._report_out(item)
+
+    def generate_report(self, db: Session, project_id: UUID, report_type: str = "health") -> ReportOut:
+        project = self.get(db, project_id)
+        titles = {"architecture": "Architecture Analysis", "health": "Weekly Project Health", "requirements": "Requirements Coverage", "risk": "Risk Assessment", "team": "Team Workload", "api": "API Coverage", "delivery": "Delivery Report"}
+        title = titles.get(report_type, "AI Executive Summary")
+        health = project.workspace_metadata.health_score if project.workspace_metadata else self._health(project)
+        score = max(1, min(99, health + (4 if report_type == "architecture" else 0)))
+        summary = f"{project.name} has {len(project.requirements)} requirements, {len(project.tasks)} delivery tasks and {len(project.memberships)} contributors."
+        content = f"# {title}\n\n## AI analysis\n\n{summary}\n\n## Overall score\n\n**{score} / 100**\n\n## Strengths\n\n- Structured project context and clear ownership\n- Deterministic blueprint is available for local review\n- Core delivery dependencies are visible\n\n## Attention needed\n\n- Review open risks before the next milestone\n- Connect uncovered requirements to implementation tasks\n\n## Recommended next step\n\nReview the highest-priority task with its owner and update the project status after the next delivery checkpoint.\n"
+        item = Report(project_id=project.id, report_type=report_type, title=title, summary=summary, generated_by="mock-ai", status="generated", score=score, content=content, metadata_json={"requirements": len(project.requirements), "tasks": len(project.tasks), "team": len(project.memberships)})
+        db.add(item)
+        db.add(Activity(project_id=project.id, actor_name="MindStream AI", action=f"Generated {title}", category="report", details="The report is based on current project intelligence."))
+        db.commit()
+        db.refresh(item)
+        return self._report_out(item)
+
+    def activities(self, db: Session, project_id: UUID) -> list[ActivityOut]:
+        self.get(db, project_id)
+        return [ActivityOut.model_validate(x) for x in db.scalars(select(Activity).where(Activity.project_id == project_id).order_by(Activity.created_at.desc())).all()]
+
+    def milestones(self, db: Session, project_id: UUID) -> list[MilestoneOut]:
+        self.get(db, project_id)
+        return [MilestoneOut.model_validate(x) for x in db.scalars(select(Milestone).where(Milestone.project_id == project_id).order_by(Milestone.id)).all()]
+
+    def risks(self, db: Session, project_id: UUID) -> list[RiskOut]:
+        self.get(db, project_id)
+        return [RiskOut.model_validate(x) for x in db.scalars(select(ProjectRisk).where(ProjectRisk.project_id == project_id).order_by(ProjectRisk.severity, ProjectRisk.id)).all()]
+
+    def workspace(self, db: Session):
+        projects = self.list(db)
+        people = self.people(db)
+        activity = [ActivityOut.model_validate(item) for item in db.scalars(select(Activity).order_by(Activity.created_at.desc()).limit(12)).all()]
+        return {"projects": projects, "people": people[:8], "recent_activity": activity, "metrics": {"projects": len(projects), "active_projects": sum(1 for item in projects if item.status in ("active", "planning", "at_risk")), "people": len(people), "reports": db.scalar(select(func.count(Report.id))) or 0}}
+
+    @staticmethod
+    def _report_out(item: Report) -> ReportOut:
+        return ReportOut.model_validate({"id": item.id, "project_id": item.project_id, "report_type": item.report_type, "title": item.title, "summary": item.summary, "generated_at": item.created_at, "generated_by": item.generated_by, "status": item.status, "score": item.score, "content": item.content, "metadata_json": item.metadata_json or {}})
+
     def export(self, db: Session, project_id: UUID, format_name: str) -> tuple[str, str, str]:
         project = self.get(db, project_id)
-        requirements = self.requirements(db, project_id)
-        architecture = self.architecture(db, project_id)
-        database = self.database(db, project_id)
-        tasks = self.tasks(db, project_id)
-        roles = self.roles(db, project_id)
-        documents = self.documents(db, project_id)
+        requirements, architecture, database, tasks, roles, documents = self.requirements(db, project_id), self.architecture(db, project_id), self.database(db, project_id), self.tasks(db, project_id), self.roles(db, project_id), self.documents(db, project_id)
         data = {"project": ProjectDetail.model_validate(self.detail(db, project_id)).model_dump(mode="json"), "requirements": [item.model_dump(mode="json") for item in requirements], "architecture": architecture.model_dump(mode="json") if architecture else None, "database": [item.model_dump(mode="json") for item in database], "tasks": [item.model_dump(mode="json") for item in tasks], "roles": [item.model_dump(mode="json") for item in roles], "documents": [item.model_dump(mode="json") for item in documents]}
         safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", project.name).strip("-")[:60] or "project"
         if format_name == "json":
             return json.dumps(data, indent=2), "application/json", safe_name + ".json"
         if format_name == "markdown":
-            content = documents[0].content if documents else f"# {project.name}\n\n{project.description}\n"
-            return content, "text/markdown; charset=utf-8", safe_name + ".md"
+            return (documents[0].content if documents else f"# {project.name}\n\n{project.description}\n"), "text/markdown; charset=utf-8", safe_name + ".md"
         raise HTTPException(status_code=400, detail={"code": "invalid_export_format", "message": "format must be markdown or json"})
+
+    @staticmethod
+    def _slug(name: str) -> str:
+        return re.sub(r"[^a-z0-9]+", ".", name.lower()).strip(".") or "person"
+
+    @staticmethod
+    def _get_or_create_person(db: Session, name: str, email: str, title: str) -> Person:
+        person = db.scalar(select(Person).where(Person.email == email))
+        if person:
+            return person
+        person = Person(name=name, email=email, title=title)
+        db.add(person)
+        db.flush()
+        return person
+
+    @staticmethod
+    def _progress(project: Project) -> int:
+        tasks = project.tasks if "tasks" in project.__dict__ else []
+        return round(sum(1 for item in tasks if item.status == "done") / len(tasks) * 100) if tasks else 0
+
+    @staticmethod
+    def _health(project: Project) -> int:
+        requirements = len(project.requirements) if "requirements" in project.__dict__ else 0
+        tasks = len(project.tasks) if "tasks" in project.__dict__ else 0
+        return min(96, 58 + min(requirements, 10) * 2 + min(tasks, 10))

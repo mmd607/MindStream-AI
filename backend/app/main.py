@@ -8,14 +8,20 @@ from app.api.v1.routes.health import router as health_router
 from app.api.v1.routes.projects import router as project_router
 from app.core.config import settings
 from app.core.logging import configure_logging
-from app.db.session import Base, engine
+from app.db.session import Base, SessionLocal, engine
 from app import models  # noqa: F401 - registers all ORM models
+from app.services.demo_seed import seed_demo_data
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # This keeps the zero-setup SQLite demo runnable. Production deployments should apply Alembic migrations.
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_demo_data(db)
+    finally:
+        db.close()
     yield
 
 

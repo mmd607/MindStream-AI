@@ -81,3 +81,22 @@ def test_duplicate_generation_is_rejected(client):
     finally:
         db.delete(run)
         db.commit()
+
+
+def test_workspace_seed_and_intelligence_relationships(client):
+    workspace = client.get("/api/v1/projects/workspace")
+    assert workspace.status_code == 200
+    payload = workspace.json()
+    assert len(payload["projects"]) >= 6
+    assert payload["metrics"]["people"] >= 3
+    sara = next(person for person in payload["people"] if person["name"] == "Sara Rahimi")
+    assert sara["project_count"] >= 2
+    project = next(item for item in payload["projects"] if item["name"] == "Food Delivery Platform")
+    project_id = project["id"]
+    assert client.get(f"/api/v1/projects/{project_id}/people").json()
+    assert client.get(f"/api/v1/projects/{project_id}/risks").json()
+    report = client.post(f"/api/v1/projects/{project_id}/reports?report_type=architecture")
+    assert report.status_code == 201
+    assert report.json()["project_id"] == project_id
+    report_id = report.json()["id"]
+    assert client.get(f"/api/v1/projects/reports/{report_id}").json()["title"] == "Architecture Analysis"
