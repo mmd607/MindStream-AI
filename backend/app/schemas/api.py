@@ -150,6 +150,7 @@ class TaskOut(APIModel):
     owner_name: str | None = None
     module_name: str | None = None
     feature_name: str | None = None
+    assignee_id: UUID | None = None
 
 
 class DocumentOut(APIModel):
@@ -215,6 +216,7 @@ class ReportOut(APIModel):
     score: int | None
     content: str
     metadata_json: dict = {}
+    project_name: str | None = None
 
 
 class ReportUpdate(BaseModel):
@@ -228,6 +230,8 @@ class ActivityOut(APIModel):
     action: str
     category: str
     details: str
+    entity_type: str | None = None
+    entity_id: UUID | None = None
     created_at: datetime
 
 
@@ -239,6 +243,10 @@ class MilestoneOut(APIModel):
     status: str
     progress: int
     due_label: str
+    owner_name: str
+    related_task_keys: list = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class RiskOut(APIModel):
@@ -247,8 +255,12 @@ class RiskOut(APIModel):
     title: str
     description: str
     severity: str
+    probability: str
     status: str
     owner_name: str
+    mitigation: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class FeatureOut(APIModel):
@@ -304,6 +316,26 @@ class ProjectComparison(BaseModel):
     tasks: int
     team: int
     risks: int
+
+
+class SearchItem(BaseModel):
+    id: UUID
+    title: str
+    subtitle: str = ""
+    kind: str
+    project_id: UUID | None = None
+
+
+class SearchOut(BaseModel):
+    query: str
+    groups: dict[str, list[SearchItem]]
+
+
+class InsightOut(BaseModel):
+    kind: str
+    title: str
+    body: str
+    severity: str = "info"
 
 
 class WorkspaceOut(BaseModel):

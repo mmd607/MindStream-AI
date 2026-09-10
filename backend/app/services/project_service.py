@@ -5,18 +5,18 @@ import re
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
     Activity, ArchitecturePlan, DatabaseEntity, Document, GenerationRun, Milestone,
     Person, Project, ProjectAPI, ProjectFeature, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report,
-    Requirement, Task, TeamRole,
+    Requirement, Task, TaskAssignment, TeamRole,
 )
 from app.schemas.api import (
     ActivityOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut,
     MilestoneOut, PersonOut, ProjectCreate, ProjectDetail, ProjectMemberOut,
-    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut, APIOut, FeatureOut, TraceabilityLink, ProjectComparison,
+    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut, APIOut, FeatureOut, TraceabilityLink, ProjectComparison, SearchItem, InsightOut,
 )
 
 
@@ -98,7 +98,7 @@ class ProjectService:
 
     def tasks(self, db: Session, project_id: UUID) -> list[TaskOut]:
         self.get(db, project_id)
-        items = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id).order_by(Task.task_key, Task.id)).all()
+        items = db.scalars(select(Task).options(selectinload(Task.role), selectinload(Task.assignments).selectinload(TaskAssignment.person)).where(Task.project_id == project_id).order_by(Task.task_key, Task.id)).all()
         ids = [item.id for item in items]
         from app.models.entities import Dependency
         dependencies = db.scalars(select(Dependency).where(Dependency.task_id.in_(ids))).all() if ids else []
@@ -110,7 +110,7 @@ class ProjectService:
         memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id)).all()
         owners = {item.role_title: item.person.name for item in memberships}
         fallback_owner = memberships[0].person.name if memberships else None
-        return [TaskOut.model_validate({**TaskOut.model_validate(item).model_dump(), "role_name": item.role.name if item.role else None, "dependency_ids": by_task.get(item.id, []), "owner_name": owners.get(item.role.name, fallback_owner) if item.role else fallback_owner, "module_name": feature_by_key.get(item.task_key).module_name if item.task_key in feature_by_key else None, "feature_name": feature_by_key.get(item.task_key).name if item.task_key in feature_by_key else None}) for item in items]
+        return [TaskOut.model_validate({**TaskOut.model_validate(item).model_dump(), "role_name": item.role.name if item.role else None, "dependency_ids": by_task.get(item.id, []), "assignee_id": item.assignments[0].person_id if item.assignments else None, "owner_name": item.assignments[0].person.name if item.assignments else (owners.get(item.role.name, fallback_owner) if item.role else fallback_owner), "module_name": feature_by_key.get(item.task_key).module_name if item.task_key in feature_by_key else None, "feature_name": feature_by_key.get(item.task_key).name if item.task_key in feature_by_key else None}) for item in items]
 
     def roles(self, db: Session, project_id: UUID) -> list[TeamRoleOut]:
         self.get(db, project_id)
@@ -140,14 +140,17 @@ class ProjectService:
         if search:
             term = search.lower()
             items = [item for item in items if term in f"{item.path} {item.purpose} {item.module}".lower()]
-        return [APIOut.model_validate(item) for item in items]
+        task_keys = [item.task_key for item in items if item.task_key]
+        assigned_tasks = db.scalars(select(Task).options(selectinload(Task.assignments).selectinload(TaskAssignment.person)).where(Task.project_id == project_id, Task.task_key.in_(task_keys))).all() if task_keys else []
+        owner_by_task = {task.task_key: task.assignments[0].person.name for task in assigned_tasks if task.assignments}
+        return [APIOut.model_validate({**APIOut.model_validate(item).model_dump(), "owner_name": owner_by_task.get(item.task_key, item.owner_name)}) for item in items]
 
     def traceability(self, db: Session, project_id: UUID) -> list[TraceabilityLink]:
         project = self.get(db, project_id)
         requirements = db.scalars(select(Requirement).where(Requirement.project_id == project_id).order_by(Requirement.id)).all()
         features = db.scalars(select(ProjectFeature).where(ProjectFeature.project_id == project_id)).all()
         apis = db.scalars(select(ProjectAPI).where(ProjectAPI.project_id == project_id)).all()
-        tasks = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id)).all()
+        tasks = db.scalars(select(Task).options(selectinload(Task.role), selectinload(Task.assignments).selectinload(TaskAssignment.person)).where(Task.project_id == project_id)).all()
         memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id)).all()
         feature_by_requirement = {item.requirement_id: item for item in features}
         api_by_feature = {item.feature_name: item for item in apis}
@@ -158,7 +161,7 @@ class ProjectService:
             feature = feature_by_requirement.get(requirement.id)
             api = api_by_feature.get(feature.name) if feature else None
             task = task_by_key.get(feature.task_key) if feature and feature.task_key else None
-            owner = role_owners.get(task.role.name, memberships[0].person.name if memberships else None) if task and task.role else (memberships[0].person.name if memberships else None)
+            owner = task.assignments[0].person.name if task and task.assignments else (role_owners.get(task.role.name, memberships[0].person.name if memberships else None) if task and task.role else (memberships[0].person.name if memberships else None))
             covered = bool(feature and task and api)
             result.append(TraceabilityLink.model_validate({"requirement_id": requirement.id, "requirement_title": requirement.title, "feature_id": feature.id if feature else None, "feature_name": feature.name if feature else None, "module_name": feature.module_name if feature else None, "api_id": api.id if api else None, "api_path": api.path if api else None, "task_key": task.task_key if task else (feature.task_key if feature else None), "task_title": task.title if task else None, "owner_name": owner, "coverage": "covered" if covered else "needs attention"}))
         return result
@@ -181,11 +184,42 @@ class ProjectService:
         db.refresh(item)
         return self._report_out(item)
 
+    def search(self, db: Session, query: str):
+        term = f"%{query.strip()}%"
+        projects = db.scalars(select(Project).where(or_(Project.name.ilike(term), Project.description.ilike(term))).limit(8)).all()
+        people = db.scalars(select(Person).where(or_(Person.name.ilike(term), Person.title.ilike(term))).limit(8)).all()
+        requirements = db.scalars(select(Requirement).where(or_(Requirement.title.ilike(term), Requirement.description.ilike(term))).limit(8)).all()
+        features = db.scalars(select(ProjectFeature).where(or_(ProjectFeature.name.ilike(term), ProjectFeature.module_name.ilike(term))).limit(8)).all()
+        module_features = db.scalars(select(ProjectFeature).where(ProjectFeature.module_name.ilike(term)).order_by(ProjectFeature.module_name, ProjectFeature.project_id)).all()
+        apis = db.scalars(select(ProjectAPI).where(or_(ProjectAPI.path.ilike(term), ProjectAPI.module.ilike(term), ProjectAPI.purpose.ilike(term))).limit(8)).all()
+        tasks = db.scalars(select(Task).where(or_(Task.title.ilike(term), Task.description.ilike(term))).limit(8)).all()
+        reports = db.scalars(select(Report).where(or_(Report.title.ilike(term), Report.summary.ilike(term))).limit(8)).all()
+        risks = db.scalars(select(ProjectRisk).where(or_(ProjectRisk.title.ilike(term), ProjectRisk.description.ilike(term))).limit(8)).all()
+        unique_modules = []
+        seen_modules = set()
+        for item in module_features:
+            key = (item.project_id, item.module_name)
+            if key not in seen_modules:
+                seen_modules.add(key)
+                unique_modules.append(SearchItem(id=item.id, title=item.module_name, subtitle="Product structure module", kind="module", project_id=item.project_id))
+        return {"query": query, "groups": {"projects": [SearchItem(id=item.id, title=item.name, subtitle=item.description, kind="project") for item in projects], "people": [SearchItem(id=item.id, title=item.name, subtitle=item.title, kind="person") for item in people], "requirements": [SearchItem(id=item.id, title=item.title, subtitle=item.description, kind="requirement", project_id=item.project_id) for item in requirements], "features": [SearchItem(id=item.id, title=item.name, subtitle=item.module_name, kind="feature", project_id=item.project_id) for item in features], "modules": unique_modules[:8], "apis": [SearchItem(id=item.id, title=item.path, subtitle=item.module, kind="api", project_id=item.project_id) for item in apis], "tasks": [SearchItem(id=item.id, title=item.title, subtitle=item.task_key, kind="task", project_id=item.project_id) for item in tasks], "reports": [SearchItem(id=item.id, title=item.title, subtitle=item.report_type, kind="report", project_id=item.project_id) for item in reports], "risks": [SearchItem(id=item.id, title=item.title, subtitle=item.severity, kind="risk", project_id=item.project_id) for item in risks]}}
+
+    def insights(self, db: Session, project_id: UUID) -> list[InsightOut]:
+        project = self.get(db, project_id)
+        architecture = db.scalar(select(ArchitecturePlan).where(ArchitecturePlan.project_id == project_id))
+        links = self.traceability(db, project_id)
+        tasks = db.scalars(select(Task).where(Task.project_id == project_id)).all()
+        risks = db.scalars(select(ProjectRisk).where(ProjectRisk.project_id == project_id)).all()
+        covered = round(sum(item.coverage == "covered" for item in links) / len(links) * 100) if links else 0
+        blocked = sum(item.status == "blocked" for item in tasks)
+        urgent_risks = sum(item.severity in ("high", "critical") and item.status == "open" for item in risks)
+        return [InsightOut(kind="architecture", title="Architecture insight", body=f"{architecture.style if architecture else 'The architecture'} has {len(architecture.components_json) if architecture else 0} visible components and a clear path from client to persistence.", severity="info"), InsightOut(kind="delivery", title="Delivery insight", body=f"{blocked} tasks are currently blocked and {sum(item.priority in ('high', 'critical') for item in tasks)} tasks are high priority.", severity="warning" if blocked else "info"), InsightOut(kind="requirements", title="Requirements insight", body=f"{covered}% of requirements are traceable across feature, API, task, and ownership links.", severity="success" if covered >= 80 else "warning"), InsightOut(kind="team", title="Team insight", body=f"{len(project.memberships)} people are connected to this project and can be followed through their cross-project profiles.", severity="info"), InsightOut(kind="risk", title="Risk insight", body=f"{urgent_risks} high-severity open risks need attention before the next checkpoint.", severity="danger" if urgent_risks else "success")]
+
     def members(self, db: Session, project_id: UUID) -> list[ProjectMemberOut]:
         self.get(db, project_id)
         memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id).order_by(ProjectMembership.role_title)).all()
-        tasks = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id)).all()
-        return [ProjectMemberOut.model_validate({"id": item.id, "person_id": item.person_id, "name": item.person.name, "email": item.person.email, "title": item.person.title, "role_title": item.role_title, "workload_percent": item.workload_percent, "modules": item.modules_json or [], "assigned_task_count": sum(1 for task in tasks if task.role and task.role.name == item.role_title), "completed_task_count": sum(1 for task in tasks if task.role and task.role.name == item.role_title and task.status == "done")}) for item in memberships]
+        tasks = db.scalars(select(Task).options(selectinload(Task.role), selectinload(Task.assignments)).where(Task.project_id == project_id)).all()
+        return [ProjectMemberOut.model_validate({"id": item.id, "person_id": item.person_id, "name": item.person.name, "email": item.person.email, "title": item.person.title, "role_title": item.role_title, "workload_percent": item.workload_percent, "modules": item.modules_json or [], "assigned_task_count": sum(1 for task in tasks if any(assignment.person_id == item.person_id for assignment in task.assignments)), "completed_task_count": sum(1 for task in tasks if task.status == "done" and any(assignment.person_id == item.person_id for assignment in task.assignments))}) for item in memberships]
 
     def people(self, db: Session, search: str = "") -> list[PersonOut]:
         query = select(Person).options(selectinload(Person.memberships).selectinload(ProjectMembership.project)).order_by(Person.name)
@@ -195,8 +229,9 @@ class ProjectService:
         for person in db.scalars(query).all():
             memberships = person.memberships
             project_ids = [item.project_id for item in memberships]
-            tasks = db.scalars(select(Task).where(Task.project_id.in_(project_ids))).all() if project_ids else []
-            result.append(PersonOut.model_validate({"id": person.id, "name": person.name, "email": person.email, "title": person.title, "avatar": person.avatar, "project_count": len(memberships), "active_task_count": sum(1 for task in tasks if task.status not in ("done", "completed")), "completed_task_count": sum(1 for task in tasks if task.status in ("done", "completed")), "projects": [{"id": item.project.id, "name": item.project.name, "status": item.project.status} for item in memberships]}))
+            tasks = db.scalars(select(Task).options(selectinload(Task.assignments)).where(Task.project_id.in_(project_ids))).all() if project_ids else []
+            assigned_tasks = [task for task in tasks if any(assignment.person_id == person.id for assignment in task.assignments)]
+            result.append(PersonOut.model_validate({"id": person.id, "name": person.name, "email": person.email, "title": person.title, "avatar": person.avatar, "project_count": len(memberships), "active_task_count": sum(1 for task in assigned_tasks if task.status not in ("done", "completed")), "completed_task_count": sum(1 for task in assigned_tasks if task.status in ("done", "completed")), "projects": [{"id": item.project.id, "name": item.project.name, "status": item.project.status} for item in memberships]}))
         return result
 
     def person(self, db: Session, person_id: UUID) -> PersonOut:
@@ -204,15 +239,40 @@ class ProjectService:
             raise HTTPException(status_code=404, detail={"code": "person_not_found", "message": "Person not found"})
         return next(item for item in self.people(db) if item.id == person_id)
 
+    def person_projects(self, db: Session, person_id: UUID) -> list[ProjectSummary]:
+        person = db.scalar(select(Person).options(selectinload(Person.memberships)).where(Person.id == person_id))
+        if not person:
+            raise HTTPException(status_code=404, detail={"code": "person_not_found", "message": "Person not found"})
+        project_ids = [membership.project_id for membership in person.memberships]
+        if not project_ids:
+            return []
+        projects = db.scalars(select(Project).options(selectinload(Project.workspace_metadata), selectinload(Project.memberships), selectinload(Project.tasks), selectinload(Project.reports), selectinload(Project.features), selectinload(Project.apis)).where(Project.id.in_(project_ids)).order_by(Project.created_at.desc())).all()
+        return [self._summary(project) for project in projects]
+
     def reports(self, db: Session, project_id: UUID) -> list[ReportOut]:
         self.get(db, project_id)
         return [self._report_out(item) for item in db.scalars(select(Report).where(Report.project_id == project_id).order_by(Report.created_at.desc())).all()]
+
+    def reports_all(self, db: Session, report_type: str = "", status: str = "") -> list[ReportOut]:
+        query = select(Report).options(selectinload(Report.project)).order_by(Report.created_at.desc())
+        if report_type:
+            query = query.where(Report.report_type == report_type)
+        if status:
+            query = query.where(Report.status == status)
+        return [ReportOut.model_validate({**self._report_out(item).model_dump(), "project_name": item.project.name}) for item in db.scalars(query).all()]
 
     def report(self, db: Session, report_id: UUID) -> ReportOut:
         item = db.get(Report, report_id)
         if not item:
             raise HTTPException(status_code=404, detail={"code": "report_not_found", "message": "Report not found"})
         return self._report_out(item)
+
+    def regenerate_report(self, db: Session, project_id: UUID, report_id: UUID) -> ReportOut:
+        project = self.get(db, project_id)
+        item = db.get(Report, report_id)
+        if not item or item.project_id != project.id:
+            raise HTTPException(status_code=404, detail={"code": "report_not_found", "message": "Report not found for this project"})
+        return self.generate_report(db, project.id, item.report_type)
 
     def generate_report(self, db: Session, project_id: UUID, report_type: str = "health") -> ReportOut:
         project = self.get(db, project_id)
@@ -221,8 +281,12 @@ class ProjectService:
         health = project.workspace_metadata.health_score if project.workspace_metadata else self._health(project)
         score = max(1, min(99, health + (4 if report_type == "architecture" else 0)))
         summary = f"{project.name} has {len(project.requirements)} requirements, {len(project.tasks)} delivery tasks and {len(project.memberships)} contributors."
-        content = f"# {title}\n\n## AI analysis\n\n{summary}\n\n## Overall score\n\n**{score} / 100**\n\n## Strengths\n\n- Structured project context and clear ownership\n- Deterministic blueprint is available for local review\n- Core delivery dependencies are visible\n\n## Attention needed\n\n- Review open risks before the next milestone\n- Connect uncovered requirements to implementation tasks\n\n## Recommended next step\n\nReview the highest-priority task with its owner and update the project status after the next delivery checkpoint.\n"
-        item = Report(project_id=project.id, report_type=report_type, title=title, summary=summary, generated_by="mock-ai", status="generated", score=score, content=content, metadata_json={"requirements": len(project.requirements), "tasks": len(project.tasks), "team": len(project.memberships)})
+        requirement_name = project.requirements[0].title if project.requirements else "No requirement captured yet"
+        api_path = project.apis[0].path if project.apis else "No API captured yet"
+        task_name = project.tasks[0].title if project.tasks else "No delivery task captured yet"
+        risk_name = project.project_risks[0].title if project.project_risks else "No open risk captured yet"
+        content = f"# {title}\n\n## AI analysis\n\n{summary}\n\n## Overall score\n\n**{score} / 100**\n\n## Connected project entities\n\n- Requirement: **{requirement_name}**\n- API surface: **{api_path}**\n- Delivery task: **{task_name}**\n- Risk under review: **{risk_name}**\n\n## Strengths\n\n- Structured project context and clear ownership\n- Deterministic blueprint is available for local review\n- Core delivery dependencies are visible\n\n## Attention needed\n\n- Review open risks before the next milestone\n- Connect uncovered requirements to implementation tasks\n\n## Recommended next step\n\nReview the highest-priority task with its owner and update the project status after the next delivery checkpoint.\n"
+        item = Report(project_id=project.id, report_type=report_type, title=title, summary=summary, generated_by="mock-ai", status="generated", score=score, content=content, metadata_json={"requirements": len(project.requirements), "features": len(project.features), "apis": len(project.apis), "tasks": len(project.tasks), "team": len(project.memberships), "linked_requirement": requirement_name, "linked_api": api_path, "linked_task": task_name, "linked_risk": risk_name})
         db.add(item)
         db.add(Activity(project_id=project.id, actor_name="MindStream AI", action=f"Generated {title}", category="report", details="The report is based on current project intelligence."))
         db.commit()

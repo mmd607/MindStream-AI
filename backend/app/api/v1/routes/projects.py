@@ -5,7 +5,7 @@ from fastapi.responses import Response as RawResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.api import APIOut, ActivityOut, AnalyzeOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, FeatureOut, GenerationRunOut, MilestoneOut, PersonOut, ProjectComparison, ProjectCreate, ProjectDetail, ProjectMemberOut, ProjectStatusUpdate, ProjectSummary, ReportOut, ReportUpdate, RequirementOut, RiskOut, TaskOut, TeamRoleOut, TraceabilityLink, WorkspaceOut
+from app.schemas.api import APIOut, ActivityOut, AnalyzeOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, FeatureOut, GenerationRunOut, InsightOut, MilestoneOut, PersonOut, ProjectComparison, ProjectCreate, ProjectDetail, ProjectMemberOut, ProjectStatusUpdate, ProjectSummary, ReportOut, ReportUpdate, RequirementOut, RiskOut, SearchOut, TaskOut, TeamRoleOut, TraceabilityLink, WorkspaceOut
 from app.services.planning_service import PlanningService
 from app.services.project_service import ProjectService
 
@@ -48,6 +48,11 @@ def compare_projects(ids: list[UUID] | None = Query(default=None), db: Session =
     return service.compare(db, ids or [])
 
 
+@router.get("/search", response_model=SearchOut)
+def search_workspace(q: str = Query(min_length=2, max_length=120), db: Session = Depends(get_db)):
+    return service.search(db, q)
+
+
 @router.get("", response_model=list[ProjectSummary])
 def list_projects(search: str = Query(default="", max_length=120), status: str = Query(default="", max_length=30), domain: str = Query(default="", max_length=80), db: Session = Depends(get_db)):
     return service.list(db, search, status, domain)
@@ -75,6 +80,13 @@ def analyze_project(project_id: UUID, db: Session = Depends(get_db)):
     return AnalyzeOut(run_id=run.id, status=run.status, message="Project blueprint generated successfully")
 
 
+@router.post("/{project_id}/seed-demo", response_model=ProjectDetail)
+def seed_project_demo(project_id: UUID, db: Session = Depends(get_db)):
+    from app.services.demo_seed import seed_demo_data
+    seed_demo_data(db)
+    return service.detail(db, project_id)
+
+
 @router.get("/{project_id}/requirements", response_model=list[RequirementOut])
 def get_requirements(project_id: UUID, db: Session = Depends(get_db)):
     return service.requirements(db, project_id)
@@ -88,6 +100,11 @@ def get_features(project_id: UUID, db: Session = Depends(get_db)):
 @router.get("/{project_id}/traceability", response_model=list[TraceabilityLink])
 def get_traceability(project_id: UUID, db: Session = Depends(get_db)):
     return service.traceability(db, project_id)
+
+
+@router.get("/{project_id}/insights", response_model=list[InsightOut])
+def get_insights(project_id: UUID, db: Session = Depends(get_db)):
+    return service.insights(db, project_id)
 
 
 @router.get("/{project_id}/apis", response_model=list[APIOut])
@@ -135,6 +152,11 @@ def get_reports(project_id: UUID, db: Session = Depends(get_db), report_type: st
 @router.post("/{project_id}/reports", response_model=ReportOut, status_code=201)
 def generate_report(project_id: UUID, report_type: str = Query(default="health", max_length=50), db: Session = Depends(get_db)):
     return service.generate_report(db, project_id, report_type)
+
+
+@router.post("/{project_id}/reports/{report_id}/regenerate", response_model=ReportOut, status_code=201)
+def regenerate_report(project_id: UUID, report_id: UUID, db: Session = Depends(get_db)):
+    return service.regenerate_report(db, project_id, report_id)
 
 
 @router.get("/{project_id}/activities", response_model=list[ActivityOut])
