@@ -80,6 +80,13 @@ def analyze_project(project_id: UUID, db: Session = Depends(get_db)):
     return AnalyzeOut(run_id=run.id, status=run.status, message="Project blueprint generated successfully")
 
 
+@router.post("/{project_id}/seed-demo", response_model=ProjectDetail)
+def seed_project_demo(project_id: UUID, db: Session = Depends(get_db)):
+    from app.services.demo_seed import seed_demo_data
+    seed_demo_data(db)
+    return service.detail(db, project_id)
+
+
 @router.get("/{project_id}/requirements", response_model=list[RequirementOut])
 def get_requirements(project_id: UUID, db: Session = Depends(get_db)):
     return service.requirements(db, project_id)
@@ -145,6 +152,11 @@ def get_reports(project_id: UUID, db: Session = Depends(get_db), report_type: st
 @router.post("/{project_id}/reports", response_model=ReportOut, status_code=201)
 def generate_report(project_id: UUID, report_type: str = Query(default="health", max_length=50), db: Session = Depends(get_db)):
     return service.generate_report(db, project_id, report_type)
+
+
+@router.post("/{project_id}/reports/{report_id}/regenerate", response_model=ReportOut, status_code=201)
+def regenerate_report(project_id: UUID, report_id: UUID, db: Session = Depends(get_db)):
+    return service.regenerate_report(db, project_id, report_id)
 
 
 @router.get("/{project_id}/activities", response_model=list[ActivityOut])

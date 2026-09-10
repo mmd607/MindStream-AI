@@ -37,6 +37,7 @@ def test_full_mock_generation_flow(client):
     tasks = client.get(f"/api/v1/projects/{project_id}/tasks").json()
     assert all(task["task_key"] for task in tasks)
     assert any(task["dependency_ids"] for task in tasks)
+    assert any(task["assignee_id"] and task["owner_name"] for task in tasks)
     team = client.get(f"/api/v1/projects/{project_id}/team").json()
     assert len(team) >= 5
     assert any(role["task_count"] > 0 for role in team)
@@ -96,6 +97,8 @@ def test_workspace_seed_and_intelligence_relationships(client):
     project = next(item for item in payload["projects"] if item["name"] == "Food Delivery Platform")
     project_id = project["id"]
     assert client.get(f"/api/v1/projects/{project_id}/people").json()
+    assert client.get(f"/api/v1/projects/{project_id}/activities").json()
+    assert client.get(f"/api/v1/projects/{project_id}/milestones").json()
     assert client.get(f"/api/v1/projects/{project_id}/risks").json()
     assert client.get(f"/api/v1/projects/{project_id}/features").json()
     assert client.get(f"/api/v1/projects/{project_id}/apis").json()
@@ -118,6 +121,46 @@ def test_workspace_seed_and_intelligence_relationships(client):
     search = client.get("/api/v1/projects/search?q=Sara")
     assert search.status_code == 200
     assert search.json()["groups"]["people"]
+    module_search = client.get("/api/v1/projects/search?q=Next.js")
+    assert module_search.status_code == 200
     insights = client.get(f"/api/v1/projects/{project_id}/insights")
     assert insights.status_code == 200
     assert {item["kind"] for item in insights.json()} >= {"architecture", "delivery", "requirements", "team", "risk"}
+
+
+def test_public_people_reports_seed_and_regeneration_contracts(client):
+    people = client.get("/api/v1/people")
+    assert people.status_code == 200
+    sara = next(item for item in people.json() if item["name"] == "Sara Rahimi")
+    person_projects = client.get(f"/api/v1/people/{sara['id']}/projects")
+    assert person_projects.status_code == 200
+    assert len(person_projects.json()) >= 2
+
+    reports = client.get("/api/v1/reports")
+    assert reports.status_code == 200
+    assert len(reports.json()) >= 6
+    assert all(item["project_name"] for item in reports.json())
+
+    project = next(item for item in client.get("/api/v1/projects").json() if item["name"] == "University Course Management")
+    before = client.get(f"/api/v1/projects/{project['id']}/reports").json()
+    seeded = client.post(f"/api/v1/projects/{project['id']}/seed-demo")
+    assert seeded.status_code == 200
+    after = client.get(f"/api/v1/projects/{project['id']}/reports").json()
+    assert len(after) >= len(before)
+    assert len(after) >= 4
+    seeded_again = client.post(f"/api/v1/projects/{project['id']}/seed-demo")
+    assert seeded_again.status_code == 200
+    assert len(client.get(f"/api/v1/projects/{project['id']}/reports").json()) == len(after)
+
+    source = next(item for item in after if item["report_type"] == "architecture")
+    regenerated = client.post(f"/api/v1/projects/{project['id']}/reports/{source['id']}/regenerate")
+    assert regenerated.status_code == 201
+    assert regenerated.json()["title"] == source["title"]
+
+
+def test_project_deletion_removes_project_but_not_shared_people(client):
+    created = client.post("/api/v1/projects", json={"name": "Deletion Fixture", "description": "A temporary project used to verify safe project deletion and relationship cleanup."})
+    assert created.status_code == 201
+    project_id = created.json()["id"]
+    assert client.delete(f"/api/v1/projects/{project_id}").status_code == 204
+    assert client.get(f"/api/v1/projects/{project_id}").status_code == 404

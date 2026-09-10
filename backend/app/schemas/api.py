@@ -150,6 +150,7 @@ class TaskOut(APIModel):
     owner_name: str | None = None
     module_name: str | None = None
     feature_name: str | None = None
+    assignee_id: UUID | None = None
 
 
 class DocumentOut(APIModel):
@@ -215,6 +216,7 @@ class ReportOut(APIModel):
     score: int | None
     content: str
     metadata_json: dict = {}
+    project_name: str | None = None
 
 
 class ReportUpdate(BaseModel):
@@ -243,6 +245,8 @@ class MilestoneOut(APIModel):
     due_label: str
     owner_name: str
     related_task_keys: list = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class RiskOut(APIModel):
@@ -255,6 +259,8 @@ class RiskOut(APIModel):
     status: str
     owner_name: str
     mitigation: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class FeatureOut(APIModel):

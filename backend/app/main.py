@@ -7,6 +7,8 @@ from sqlalchemy import inspect
 
 from app.api.v1.routes.health import router as health_router
 from app.api.v1.routes.projects import router as project_router
+from app.api.v1.routes.people import router as people_router
+from app.api.v1.routes.reports import router as reports_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.session import Base, SessionLocal, engine
@@ -20,8 +22,8 @@ def ensure_compatible_schema() -> None:
         return
     additions = {
         "activities": {"entity_type": "VARCHAR(40)", "entity_id": "TEXT"},
-        "milestones": {"owner_name": "VARCHAR(120) NOT NULL DEFAULT 'Unassigned'", "related_task_keys": "JSON NOT NULL DEFAULT '[]'"},
-        "project_risks": {"probability": "VARCHAR(20) NOT NULL DEFAULT 'medium'", "mitigation": "TEXT NOT NULL DEFAULT 'Review mitigation at the next project checkpoint.'"},
+        "milestones": {"owner_name": "VARCHAR(120) NOT NULL DEFAULT 'Unassigned'", "related_task_keys": "JSON NOT NULL DEFAULT '[]'", "created_at": "DATETIME", "updated_at": "DATETIME"},
+        "project_risks": {"probability": "VARCHAR(20) NOT NULL DEFAULT 'medium'", "mitigation": "TEXT NOT NULL DEFAULT 'Review mitigation at the next project checkpoint.'", "created_at": "DATETIME", "updated_at": "DATETIME"},
     }
     with engine.begin() as connection:
         inspector = inspect(connection)
@@ -50,6 +52,8 @@ app = FastAPI(title="AI Project Architect API", version="0.1.0", lifespan=lifesp
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type"])
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(project_router, prefix="/api/v1")
+app.include_router(people_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 
 
 @app.exception_handler(Exception)

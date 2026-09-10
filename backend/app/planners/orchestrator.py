@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.factory import get_provider
 from app.ai.schemas import Blueprint
-from app.models import ArchitecturePlan, DatabaseEntity, DatabaseField, Dependency, Document, GenerationRun, Project, ProjectAPI, ProjectFeature, Requirement, Task, TeamRole
+from app.models import ArchitecturePlan, DatabaseEntity, DatabaseField, Dependency, Document, GenerationRun, Project, ProjectAPI, ProjectFeature, ProjectMembership, Requirement, Task, TaskAssignment, TeamRole
 from app.planners.documentation import markdown_for_blueprint
 from app.planners.validator import validate_blueprint
 
@@ -45,6 +45,7 @@ class PlanningOrchestrator:
         task_ids = list(db.scalars(select(Task.id).where(Task.project_id == project.id)).all())
         if task_ids:
             db.execute(delete(Dependency).where((Dependency.task_id.in_(task_ids)) | (Dependency.depends_on_task_id.in_(task_ids))))
+            db.execute(delete(TaskAssignment).where(TaskAssignment.task_id.in_(task_ids)))
         for model in (Requirement, ArchitecturePlan, DatabaseEntity, TeamRole, Task, Document, ProjectFeature, ProjectAPI):
             db.execute(delete(model).where(model.project_id == project.id))
         db.flush()
@@ -72,12 +73,18 @@ class PlanningOrchestrator:
             for dependency in item.depends_on:
                 db.add(Dependency(task_id=task_records[item.key].id, depends_on_task_id=task_records[dependency].id))
         db.flush()
+        memberships = list(db.scalars(select(ProjectMembership).where(ProjectMembership.project_id == project.id).order_by(ProjectMembership.id)).all())
+        for index, task in enumerate(task_records.values()):
+            if memberships:
+                db.add(TaskAssignment(task_id=task.id, person_id=memberships[index % len(memberships)].person_id))
+        db.flush()
         components = [item.name for item in blueprint.components] or ["Core platform"]
         for index, requirement in enumerate(requirement_records):
             feature = ProjectFeature(project_id=project.id, requirement_id=requirement.id, name=f"{requirement.title} workflow", description=requirement.description, module_name=components[index % len(components)], status="planned", task_key=blueprint.tasks[index % len(blueprint.tasks)].key if blueprint.tasks else None)
             db.add(feature)
         for index, module in enumerate(blueprint.api_modules):
             task = blueprint.tasks[index % len(blueprint.tasks)] if blueprint.tasks else None
-            db.add(ProjectAPI(project_id=project.id, method=["GET", "POST", "PATCH"][index % 3], path=f"/api/v1/{module.lower().replace(' ', '-')}", module=module, purpose=f"Support {module.lower()} workflows for the project.", request_schema="JSON", response_schema="JSON", owner_name=task.role if task else "Unassigned", feature_name=f"{requirement_records[index % len(requirement_records)].title} workflow" if requirement_records else None, task_key=task.key if task else None, status="specified"))
+            assignee = memberships[index % len(memberships)] if memberships else None
+            db.add(ProjectAPI(project_id=project.id, method=["GET", "POST", "PATCH"][index % 3], path=f"/api/v1/{module.lower().replace(' ', '-')}", module=module, purpose=f"Support {module.lower()} workflows for the project.", request_schema="JSON", response_schema="JSON", owner_name=assignee.person.name if assignee and assignee.person else (task.role if task else "Unassigned"), feature_name=f"{requirement_records[index % len(requirement_records)].title} workflow" if requirement_records else None, task_key=task.key if task else None, status="specified"))
         markdown = markdown_for_blueprint(project.name, project.description, blueprint)
         db.add(Document(project_id=project.id, document_type="project_blueprint", content=markdown, version=1))

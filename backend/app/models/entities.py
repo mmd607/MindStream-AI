@@ -67,6 +67,7 @@ class Person(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(120), default="Project contributor", nullable=False)
     avatar: Mapped[str | None] = mapped_column(String(30), nullable=True)
     memberships: Mapped[list["ProjectMembership"]] = relationship(back_populates="person", cascade="all, delete-orphan")
+    task_assignments: Mapped[list["TaskAssignment"]] = relationship(back_populates="person", cascade="all, delete-orphan")
 
 
 class ProjectMembership(Base):
@@ -113,7 +114,7 @@ class Activity(Base):
     project: Mapped[Project] = relationship(back_populates="activities")
 
 
-class Milestone(Base):
+class Milestone(TimestampMixin, Base):
     __tablename__ = "milestones"
     __table_args__ = (Index("ix_milestones_project_id", "project_id"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -128,7 +129,7 @@ class Milestone(Base):
     project: Mapped[Project] = relationship(back_populates="milestones")
 
 
-class ProjectRisk(Base):
+class ProjectRisk(TimestampMixin, Base):
     __tablename__ = "project_risks"
     __table_args__ = (Index("ix_project_risks_project_id", "project_id"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -258,6 +259,17 @@ class Task(Base):
     project: Mapped[Project] = relationship(back_populates="tasks")
     role: Mapped[TeamRole | None] = relationship(back_populates="tasks")
     parent: Mapped["Task | None"] = relationship(remote_side=[id])
+    assignments: Mapped[list["TaskAssignment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskAssignment(Base):
+    __tablename__ = "task_assignments"
+    __table_args__ = (Index("ix_task_assignments_task_id", "task_id"), UniqueConstraint("task_id", "person_id"))
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    task_id: Mapped[UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    person_id: Mapped[UUID] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    task: Mapped[Task] = relationship(back_populates="assignments")
+    person: Mapped[Person] = relationship(back_populates="task_assignments")
 
 
 class Dependency(Base):
