@@ -115,3 +115,9 @@ def test_workspace_seed_and_intelligence_relationships(client):
     updated = client.patch(f"/api/v1/projects/{project_id}", json={"status": "planning", "reason": "Reviewing integration scope"})
     assert updated.status_code == 200
     assert updated.json()["status"] == "planning"
+    search = client.get("/api/v1/projects/search?q=Sara")
+    assert search.status_code == 200
+    assert search.json()["groups"]["people"]
+    insights = client.get(f"/api/v1/projects/{project_id}/insights")
+    assert insights.status_code == 200
+    assert {item["kind"] for item in insights.json()} >= {"architecture", "delivery", "requirements", "team", "risk"}

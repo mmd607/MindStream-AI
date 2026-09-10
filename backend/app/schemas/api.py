@@ -306,6 +306,26 @@ class ProjectComparison(BaseModel):
     risks: int
 
 
+class SearchItem(BaseModel):
+    id: UUID
+    title: str
+    subtitle: str = ""
+    kind: str
+    project_id: UUID | None = None
+
+
+class SearchOut(BaseModel):
+    query: str
+    groups: dict[str, list[SearchItem]]
+
+
+class InsightOut(BaseModel):
+    kind: str
+    title: str
+    body: str
+    severity: str = "info"
+
+
 class WorkspaceOut(BaseModel):
     projects: list[ProjectSummary]
     people: list[PersonOut]

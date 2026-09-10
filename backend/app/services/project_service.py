@@ -5,7 +5,7 @@ import re
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
@@ -16,7 +16,7 @@ from app.models import (
 from app.schemas.api import (
     ActivityOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut,
     MilestoneOut, PersonOut, ProjectCreate, ProjectDetail, ProjectMemberOut,
-    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut, APIOut, FeatureOut, TraceabilityLink, ProjectComparison,
+    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut, APIOut, FeatureOut, TraceabilityLink, ProjectComparison, SearchItem, InsightOut,
 )
 
 
@@ -180,6 +180,29 @@ class ProjectService:
         db.commit()
         db.refresh(item)
         return self._report_out(item)
+
+    def search(self, db: Session, query: str):
+        term = f"%{query.strip()}%"
+        projects = db.scalars(select(Project).where(or_(Project.name.ilike(term), Project.description.ilike(term))).limit(8)).all()
+        people = db.scalars(select(Person).where(or_(Person.name.ilike(term), Person.title.ilike(term))).limit(8)).all()
+        requirements = db.scalars(select(Requirement).where(or_(Requirement.title.ilike(term), Requirement.description.ilike(term))).limit(8)).all()
+        features = db.scalars(select(ProjectFeature).where(or_(ProjectFeature.name.ilike(term), ProjectFeature.module_name.ilike(term))).limit(8)).all()
+        apis = db.scalars(select(ProjectAPI).where(or_(ProjectAPI.path.ilike(term), ProjectAPI.module.ilike(term), ProjectAPI.purpose.ilike(term))).limit(8)).all()
+        tasks = db.scalars(select(Task).where(or_(Task.title.ilike(term), Task.description.ilike(term))).limit(8)).all()
+        reports = db.scalars(select(Report).where(or_(Report.title.ilike(term), Report.summary.ilike(term))).limit(8)).all()
+        risks = db.scalars(select(ProjectRisk).where(or_(ProjectRisk.title.ilike(term), ProjectRisk.description.ilike(term))).limit(8)).all()
+        return {"query": query, "groups": {"projects": [SearchItem(id=item.id, title=item.name, subtitle=item.description, kind="project") for item in projects], "people": [SearchItem(id=item.id, title=item.name, subtitle=item.title, kind="person") for item in people], "requirements": [SearchItem(id=item.id, title=item.title, subtitle=item.description, kind="requirement", project_id=item.project_id) for item in requirements], "features": [SearchItem(id=item.id, title=item.name, subtitle=item.module_name, kind="feature", project_id=item.project_id) for item in features], "apis": [SearchItem(id=item.id, title=item.path, subtitle=item.module, kind="api", project_id=item.project_id) for item in apis], "tasks": [SearchItem(id=item.id, title=item.title, subtitle=item.task_key, kind="task", project_id=item.project_id) for item in tasks], "reports": [SearchItem(id=item.id, title=item.title, subtitle=item.report_type, kind="report", project_id=item.project_id) for item in reports], "risks": [SearchItem(id=item.id, title=item.title, subtitle=item.severity, kind="risk", project_id=item.project_id) for item in risks]}}
+
+    def insights(self, db: Session, project_id: UUID) -> list[InsightOut]:
+        project = self.get(db, project_id)
+        architecture = db.scalar(select(ArchitecturePlan).where(ArchitecturePlan.project_id == project_id))
+        links = self.traceability(db, project_id)
+        tasks = db.scalars(select(Task).where(Task.project_id == project_id)).all()
+        risks = db.scalars(select(ProjectRisk).where(ProjectRisk.project_id == project_id)).all()
+        covered = round(sum(item.coverage == "covered" for item in links) / len(links) * 100) if links else 0
+        blocked = sum(item.status == "blocked" for item in tasks)
+        urgent_risks = sum(item.severity in ("high", "critical") and item.status == "open" for item in risks)
+        return [InsightOut(kind="architecture", title="Architecture insight", body=f"{architecture.style if architecture else 'The architecture'} has {len(architecture.components_json) if architecture else 0} visible components and a clear path from client to persistence.", severity="info"), InsightOut(kind="delivery", title="Delivery insight", body=f"{blocked} tasks are currently blocked and {sum(item.priority in ('high', 'critical') for item in tasks)} tasks are high priority.", severity="warning" if blocked else "info"), InsightOut(kind="requirements", title="Requirements insight", body=f"{covered}% of requirements are traceable across feature, API, task, and ownership links.", severity="success" if covered >= 80 else "warning"), InsightOut(kind="team", title="Team insight", body=f"{len(project.memberships)} people are connected to this project and can be followed through their cross-project profiles.", severity="info"), InsightOut(kind="risk", title="Risk insight", body=f"{urgent_risks} high-severity open risks need attention before the next checkpoint.", severity="danger" if urgent_risks else "success")]
 
     def members(self, db: Session, project_id: UUID) -> list[ProjectMemberOut]:
         self.get(db, project_id)

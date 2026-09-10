@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import type { Activity, Project } from "@/types";
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="min-h-screen"><header className="topbar"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-5 px-5 py-4 lg:px-8"><Link href="/" className="focus-ring flex items-center gap-3 text-lg font-bold"><span className="brand-mark">M</span><span>MindStream <span className="muted font-normal">AI</span></span></Link><div className="flex items-center gap-3"><ProjectSwitcher /><ThemeToggle /><span className="avatar hidden sm:inline-flex">AM</span></div></div></header>{children}</main>;
+  return <main className="min-h-screen"><header className="topbar"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-5 px-5 py-4 lg:px-8"><Link href="/" className="focus-ring flex items-center gap-3 text-lg font-bold"><span className="brand-mark">M</span><span>MindStream <span className="muted font-normal">AI</span></span></Link><div className="flex items-center gap-3"><Link href="/search" className="focus-ring hidden rounded-xl border border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-sm font-semibold sm:block">⌕ Search</Link><ProjectSwitcher /><ThemeToggle /><span className="avatar hidden sm:inline-flex">AM</span></div></div></header>{children}</main>;
 }
 
 export function ProjectSwitcher() {

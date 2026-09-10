@@ -1,4 +1,4 @@
-import type { Activity, APIEndpoint, Architecture, Document, Entity, Feature, Milestone, Person, Project, ProjectComparison, ProjectMember, Report, Requirement, Risk, Role, Task, TraceabilityLink, Workspace } from "@/types";
+import type { Activity, APIEndpoint, Architecture, Document, Entity, Feature, Insight, Milestone, Person, Project, ProjectComparison, ProjectMember, Report, Requirement, Risk, Role, SearchResult, Task, TraceabilityLink, Workspace } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -34,6 +34,8 @@ export const api = {
   report: (id: string) => request<Report>(`/projects/reports/${id}`),
   updateReport: (id: string, status: "generated" | "archived") => request<Report>(`/projects/reports/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   compare: (ids: string[]) => request<ProjectComparison[]>(`/projects/compare?${ids.map(id => `ids=${encodeURIComponent(id)}`).join("&")}`),
+  search: (query: string) => request<SearchResult>(`/projects/search?q=${encodeURIComponent(query)}`),
+  insights: (id: string) => request<Insight[]>(`/projects/${id}/insights`),
   activities: (id: string) => request<Activity[]>(`/projects/${id}/activities`),
   milestones: (id: string) => request<Milestone[]>(`/projects/${id}/milestones`),
   risks: (id: string) => request<Risk[]>(`/projects/${id}/risks`),

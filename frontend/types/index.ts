@@ -16,3 +16,6 @@ export type Feature = { id: string; project_id: string; requirement_id?: string 
 export type APIEndpoint = { id: string; project_id: string; method: string; path: string; module: string; purpose: string; request_schema: string; response_schema: string; owner_name: string; feature_name?: string | null; task_key?: string | null; status: string };
 export type TraceabilityLink = { requirement_id: string; requirement_title: string; feature_id?: string | null; feature_name?: string | null; module_name?: string | null; api_id?: string | null; api_path?: string | null; task_key?: string | null; task_title?: string | null; owner_name?: string | null; coverage: string };
 export type ProjectComparison = { id: string; name: string; status: string; health_score: number; progress: number; requirements: number; features: number; modules: number; apis: number; tasks: number; team: number; risks: number };
+export type SearchItem = { id: string; title: string; subtitle: string; kind: string; project_id?: string | null };
+export type SearchResult = { query: string; groups: Record<string, SearchItem[]> };
+export type Insight = { kind: string; title: string; body: string; severity: string };
