@@ -27,7 +27,7 @@ async def lifespan(_: FastAPI):
 
 configure_logging(settings.log_level)
 app = FastAPI(title="AI Project Architect API", version="0.1.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=False, allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type"])
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(project_router, prefix="/api/v1")
 

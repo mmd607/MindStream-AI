@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
     Activity, ArchitecturePlan, DatabaseEntity, Document, GenerationRun, Milestone,
-    Person, Project, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report,
+    Person, Project, ProjectAPI, ProjectFeature, ProjectMembership, ProjectRisk, ProjectWorkspaceMetadata, Report,
     Requirement, Task, TeamRole,
 )
 from app.schemas.api import (
     ActivityOut, ArchitectureOut, DatabaseEntityOut, DocumentOut, GenerationRunOut,
     MilestoneOut, PersonOut, ProjectCreate, ProjectDetail, ProjectMemberOut,
-    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut,
+    ProjectSummary, ReportOut, RequirementOut, RiskOut, TaskOut, TeamRoleOut, APIOut, FeatureOut, TraceabilityLink, ProjectComparison,
 )
 
 
@@ -37,7 +37,7 @@ class ProjectService:
         return self._summary(project)
 
     def list(self, db: Session, search: str = "", status: str = "", domain: str = "") -> list[ProjectSummary]:
-        query = select(Project).options(selectinload(Project.workspace_metadata), selectinload(Project.memberships), selectinload(Project.tasks), selectinload(Project.reports)).order_by(Project.created_at.desc())
+        query = select(Project).options(selectinload(Project.workspace_metadata), selectinload(Project.memberships), selectinload(Project.tasks), selectinload(Project.reports), selectinload(Project.features), selectinload(Project.apis)).order_by(Project.created_at.desc())
         if search:
             query = query.where(Project.name.ilike(f"%{search}%"))
         if status:
@@ -49,7 +49,7 @@ class ProjectService:
 
     def _summary(self, project: Project) -> ProjectSummary:
         metadata = project.workspace_metadata
-        return ProjectSummary.model_validate({"id": project.id, "name": project.name, "description": project.description, "status": project.status, "team_size": project.team_size, "created_at": project.created_at, "updated_at": project.updated_at, "domain": metadata.domain if metadata else "Software", "status_label": STATUS_LABELS.get(project.status, project.status.replace("_", " ").title()), "status_reason": metadata.status_reason if metadata else "", "health_score": metadata.health_score if metadata else self._health(project), "progress": metadata.progress if metadata else self._progress(project), "team_member_count": len(project.memberships) if "memberships" in project.__dict__ else 0, "task_count": len(project.tasks) if "tasks" in project.__dict__ else 0, "report_count": len(project.reports) if "reports" in project.__dict__ else 0})
+        return ProjectSummary.model_validate({"id": project.id, "name": project.name, "description": project.description, "status": project.status, "team_size": project.team_size, "created_at": project.created_at, "updated_at": project.updated_at, "domain": metadata.domain if metadata else "Software", "status_label": STATUS_LABELS.get(project.status, project.status.replace("_", " ").title()), "status_reason": metadata.status_reason if metadata else "", "health_score": metadata.health_score if metadata else self._health(project), "progress": metadata.progress if metadata else self._progress(project), "team_member_count": len(project.memberships), "task_count": len(project.tasks), "report_count": len(project.reports), "feature_count": len(project.features), "api_count": len(project.apis)})
 
     def get(self, db: Session, project_id: UUID) -> Project:
         project = db.scalar(select(Project).options(selectinload(Project.workspace_metadata)).where(Project.id == project_id))
@@ -69,6 +69,18 @@ class ProjectService:
         project = self.get(db, project_id)
         db.delete(project)
         db.commit()
+
+    def update_status(self, db: Session, project_id: UUID, status: str, reason: str) -> ProjectSummary:
+        project = self.get(db, project_id)
+        project.status = status
+        metadata = project.workspace_metadata or ProjectWorkspaceMetadata(project_id=project.id)
+        metadata.status_reason = reason
+        metadata.status_description = f"Status updated to {STATUS_LABELS.get(status, status)}"
+        db.add(metadata)
+        db.add(Activity(project_id=project.id, actor_name="Workspace user", action=f"Moved project to {STATUS_LABELS.get(status, status)}", category="project", details=reason or "Status updated from the project dashboard."))
+        db.commit()
+        db.refresh(project)
+        return self._summary(project)
 
     def requirements(self, db: Session, project_id: UUID) -> list[RequirementOut]:
         self.get(db, project_id)
@@ -93,7 +105,12 @@ class ProjectService:
         by_task: dict[UUID, list[UUID]] = {}
         for item in dependencies:
             by_task.setdefault(item.task_id, []).append(item.depends_on_task_id)
-        return [TaskOut.model_validate({**TaskOut.model_validate(item).model_dump(), "role_name": item.role.name if item.role else None, "dependency_ids": by_task.get(item.id, [])}) for item in items]
+        features = db.scalars(select(ProjectFeature).where(ProjectFeature.project_id == project_id)).all()
+        feature_by_key = {item.task_key: item for item in features if item.task_key}
+        memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id)).all()
+        owners = {item.role_title: item.person.name for item in memberships}
+        fallback_owner = memberships[0].person.name if memberships else None
+        return [TaskOut.model_validate({**TaskOut.model_validate(item).model_dump(), "role_name": item.role.name if item.role else None, "dependency_ids": by_task.get(item.id, []), "owner_name": owners.get(item.role.name, fallback_owner) if item.role else fallback_owner, "module_name": feature_by_key.get(item.task_key).module_name if item.task_key in feature_by_key else None, "feature_name": feature_by_key.get(item.task_key).name if item.task_key in feature_by_key else None}) for item in items]
 
     def roles(self, db: Session, project_id: UUID) -> list[TeamRoleOut]:
         self.get(db, project_id)
@@ -107,6 +124,62 @@ class ProjectService:
     def runs(self, db: Session, project_id: UUID) -> list[GenerationRunOut]:
         self.get(db, project_id)
         return [GenerationRunOut.model_validate(x) for x in db.scalars(select(GenerationRun).where(GenerationRun.project_id == project_id).order_by(GenerationRun.started_at.desc())).all()]
+
+    def features(self, db: Session, project_id: UUID) -> list[FeatureOut]:
+        self.get(db, project_id)
+        return [FeatureOut.model_validate(item) for item in db.scalars(select(ProjectFeature).where(ProjectFeature.project_id == project_id).order_by(ProjectFeature.name)).all()]
+
+    def apis(self, db: Session, project_id: UUID, search: str = "", method: str = "", module: str = "") -> list[APIOut]:
+        self.get(db, project_id)
+        query = select(ProjectAPI).where(ProjectAPI.project_id == project_id).order_by(ProjectAPI.path)
+        if method:
+            query = query.where(ProjectAPI.method == method.upper())
+        if module:
+            query = query.where(ProjectAPI.module == module)
+        items = db.scalars(query).all()
+        if search:
+            term = search.lower()
+            items = [item for item in items if term in f"{item.path} {item.purpose} {item.module}".lower()]
+        return [APIOut.model_validate(item) for item in items]
+
+    def traceability(self, db: Session, project_id: UUID) -> list[TraceabilityLink]:
+        project = self.get(db, project_id)
+        requirements = db.scalars(select(Requirement).where(Requirement.project_id == project_id).order_by(Requirement.id)).all()
+        features = db.scalars(select(ProjectFeature).where(ProjectFeature.project_id == project_id)).all()
+        apis = db.scalars(select(ProjectAPI).where(ProjectAPI.project_id == project_id)).all()
+        tasks = db.scalars(select(Task).options(selectinload(Task.role)).where(Task.project_id == project_id)).all()
+        memberships = db.scalars(select(ProjectMembership).options(selectinload(ProjectMembership.person)).where(ProjectMembership.project_id == project_id)).all()
+        feature_by_requirement = {item.requirement_id: item for item in features}
+        api_by_feature = {item.feature_name: item for item in apis}
+        role_owners = {item.role_title: item.person.name for item in memberships}
+        task_by_key = {item.task_key: item for item in tasks}
+        result = []
+        for requirement in requirements:
+            feature = feature_by_requirement.get(requirement.id)
+            api = api_by_feature.get(feature.name) if feature else None
+            task = task_by_key.get(feature.task_key) if feature and feature.task_key else None
+            owner = role_owners.get(task.role.name, memberships[0].person.name if memberships else None) if task and task.role else (memberships[0].person.name if memberships else None)
+            covered = bool(feature and task and api)
+            result.append(TraceabilityLink.model_validate({"requirement_id": requirement.id, "requirement_title": requirement.title, "feature_id": feature.id if feature else None, "feature_name": feature.name if feature else None, "module_name": feature.module_name if feature else None, "api_id": api.id if api else None, "api_path": api.path if api else None, "task_key": task.task_key if task else (feature.task_key if feature else None), "task_title": task.title if task else None, "owner_name": owner, "coverage": "covered" if covered else "needs attention"}))
+        return result
+
+    def compare(self, db: Session, project_ids: list[UUID]) -> list[ProjectComparison]:
+        if not project_ids or len(project_ids) > 4:
+            raise HTTPException(status_code=400, detail={"code": "invalid_comparison", "message": "Select between 2 and 4 projects to compare"})
+        projects = db.scalars(select(Project).options(selectinload(Project.workspace_metadata), selectinload(Project.memberships), selectinload(Project.tasks), selectinload(Project.reports), selectinload(Project.features), selectinload(Project.apis)).where(Project.id.in_(project_ids))).all()
+        if len(projects) != len(set(project_ids)):
+            raise HTTPException(status_code=404, detail={"code": "project_not_found", "message": "One or more projects were not found"})
+        return [ProjectComparison.model_validate({"id": project.id, "name": project.name, "status": project.status, "health_score": project.workspace_metadata.health_score if project.workspace_metadata else self._health(project), "progress": project.workspace_metadata.progress if project.workspace_metadata else self._progress(project), "requirements": len(project.requirements), "features": len(project.features), "modules": len(project.architecture.components_json) if project.architecture else 0, "apis": len(project.apis), "tasks": len(project.tasks), "team": len(project.memberships), "risks": len(project.project_risks)}) for project in projects]
+
+    def update_report(self, db: Session, report_id: UUID, status: str) -> ReportOut:
+        item = db.get(Report, report_id)
+        if not item:
+            raise HTTPException(status_code=404, detail={"code": "report_not_found", "message": "Report not found"})
+        item.status = status
+        db.add(Activity(project_id=item.project_id, actor_name="Workspace user", action=f"Report {status}", category="report", details=item.title))
+        db.commit()
+        db.refresh(item)
+        return self._report_out(item)
 
     def members(self, db: Session, project_id: UUID) -> list[ProjectMemberOut]:
         self.get(db, project_id)
@@ -205,11 +278,11 @@ class ProjectService:
 
     @staticmethod
     def _progress(project: Project) -> int:
-        tasks = project.tasks if "tasks" in project.__dict__ else []
+        tasks = project.tasks
         return round(sum(1 for item in tasks if item.status == "done") / len(tasks) * 100) if tasks else 0
 
     @staticmethod
     def _health(project: Project) -> int:
-        requirements = len(project.requirements) if "requirements" in project.__dict__ else 0
-        tasks = len(project.tasks) if "tasks" in project.__dict__ else 0
+        requirements = len(project.requirements)
+        tasks = len(project.tasks)
         return min(96, 58 + min(requirements, 10) * 2 + min(tasks, 10))

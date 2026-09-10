@@ -58,7 +58,7 @@ def seed_demo_data(db: Session) -> None:
                 db.add(membership)
         db.flush()
         architecture = db.scalar(select(ArchitecturePlan).where(ArchitecturePlan.project_id == project.id))
-        if not architecture:
+        if not architecture or not project.features or not project.apis:
             run = GenerationRun(project_id=project.id, run_type="seed", status="queued")
             db.add(run)
             db.flush()
