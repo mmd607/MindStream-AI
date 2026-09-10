@@ -1,1043 +1,837 @@
-AI Project Architect
-
-<p align="center">
-  <strong>AI-powered software project architecture, planning, team coordination, and delivery workspace.</strong><br/>
-  Turn a project idea into a structured, traceable engineering blueprint — from requirements to architecture, database, APIs, tasks, teams, documentation, diagrams, and export.
+<div align="center">
+🧠 AI Project Architect
+From an idea → to a structured, traceable, visual software blueprint.
+<p>
+  <a href="#-overview">Overview</a> •
+  <a href="#-capabilities">Capabilities</a> •
+  <a href="#-system-architecture">Architecture</a> •
+  <a href="#-workflow">Workflow</a> •
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-quick-start">Quick Start</a>
 </p>
-
-<p align="center">
-  <b>Idea → Requirements → Product Structure → Architecture → Database → APIs → Tasks → Team → Documentation → Export</b>
+<p>
+  <img src="https://img.shields.io/badge/AI-Project%20Architect-8B7BBE?style=for-the-badge&logo=openai&logoColor=white" alt="AI Project Architect">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Next.js-Frontend-111111?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
 </p>
-
-🚀 Overview
-
-AI Project Architect is an intelligent software project planning and control workspace designed to transform a natural-language project idea into an organized, implementation-ready engineering blueprint.
-
-Instead of treating requirements, architecture, database design, APIs, task management, team planning, and documentation as disconnected artifacts, the system connects them into one coherent project model.
-
-The current version is designed as a local MVP / portfolio-grade prototype, with an architecture intended to evolve toward real LLM providers, repository analysis, GitHub integration, collaboration, autonomous engineering workflows, and enterprise project intelligence.
-
-🎯 The Problem
-
-Complex software projects often become difficult to control because information is scattered across requirements documents, architecture diagrams, database designs, API specifications, task boards, team notes, spreadsheets, and technical documentation.
-
-This creates gaps between:
-
-What the product needs
-
-How the system should be built
-
-What data is required
-
-Which APIs are needed
-
-What work must be completed
-
-Who should own the work
-
-What depends on what
-
-Whether the final plan is internally consistent
-
-AI Project Architect brings these layers together into a single structured workspace.
-
-💡 Core Capabilities
-
-1. Requirements Intelligence
-
-The system analyzes a project description and organizes:
-
+<p>
+  <img src="https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy">
+  <img src="https://img.shields.io/badge/Pydantic-Structured%20AI-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic">
+  <img src="https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
+  <img src="https://img.shields.io/badge/SQLite-Local-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/Mermaid-Diagrams-FF3670?style=flat-square&logo=mermaid&logoColor=white" alt="Mermaid">
+</p>
+<br>
+> **AI Project Architect is an intelligent software planning workspace that transforms a natural-language project idea into requirements, product structure, architecture, database design, APIs, tasks, teams, dependencies, documentation, diagrams, and exportable project blueprints.**
+<br>
+<a href="#-screenshots">
+  <img src="docs/screenshots/dashboard.png" width="760" alt="AI Project Architect Dashboard Preview">
+</a>
+<sub>Replace the preview image above with the real dashboard screenshot at <code>docs/screenshots/dashboard.png</code>.</sub>
+</div>
+---
+✨ Why This Project Exists
+Turning an idea into a real software system is not only about writing code.
+Before implementation, a team needs to understand:
+What exactly should the product do?
+Who are the users and actors?
+What are the functional and non-functional requirements?
+How should the product be divided into modules?
+What architecture fits the problem?
+What data does the system need?
+Which APIs and module boundaries are required?
+How should work be divided into epics, features, tasks, and subtasks?
+Which team roles are needed?
+What depends on what?
+Can every important requirement be traced into implementation work?
+Is the final blueprint internally consistent?
+AI Project Architect brings these decisions into one structured workspace.
+Instead of producing one large block of AI-generated text, the system creates a connected project model that can be inspected, validated, refined, visualized, documented, and exported.
+---
+🎯 Overview
+<div align="center">
+💡 Input	🧠 Intelligence	🏗️ Blueprint	🚀 Delivery
+Project Idea	AI Analysis	Architecture	Tasks
+Natural Language	Structured Planning	Database	Team
+Constraints	Validation	APIs	Dependencies
+Goals	Traceability	Diagrams	Documentation
+</div>
+The core idea
+```text
+Project Idea
+     │
+     ▼
+┌──────────────────────┐
+│ Requirements Analysis│
+└──────────┬───────────┘
+           ▼
+┌──────────────────────┐
+│ Product Structure    │
+└──────────┬───────────┘
+           ▼
+┌──────────────────────┐
+│ Architecture + Data  │
+└──────────┬───────────┘
+           ▼
+┌──────────────────────┐
+│ APIs + Module Design │
+└──────────┬───────────┘
+           ▼
+┌──────────────────────┐
+│ Tasks + Team + Deps  │
+└──────────┬───────────┘
+           ▼
+┌──────────────────────┐
+│ Docs + Diagrams      │
+└──────────┬───────────┘
+           ▼
+      Project Blueprint
+```
+---
+🧩 Capabilities
+<table>
+<tr>
+<td width="50%" valign="top">
+🧠 Requirements Intelligence
+Convert a project description into a structured requirements model.
 Functional requirements
-
 Non-functional requirements
-
 Actors
-
 Use cases
-
 Assumptions
-
 Constraints
-
 Risks
-
 Priorities
-
-Domain concepts
-
-The goal is to turn an informal idea into structured engineering information.
-
-2. Product Structure
-
-Projects can be organized into logical product areas and features:
-
-Project
-├── Product Areas
-│   ├── Features
-│   │   ├── Requirements
-│   │   └── Use Cases
-│   └── Business Capabilities
-└── Delivery Scope
-
-This provides a high-level view of what the product contains before implementation starts.
-
-3. Architecture Planning
-
-The architecture planner translates requirements into a technical system design.
-
-It can reason about:
-
-Frontend
-
-Backend
-
+Requirement categories
+</td>
+<td width="50%" valign="top">
+🏗️ Architecture Planning
+Move from requirements to a technical system design.
+Architecture style
+Components
 Services
-
 Modules
-
-External integrations
-
-Authentication
-
-Storage
-
-Notifications
-
-Analytics
-
-Supporting infrastructure
-
-Module boundaries
-
-The architecture view answers:
-
-How should this software system be built?
-
-4. Database Design
-
-The system derives a domain-oriented data model from the project.
-
-It can organize:
-
+Responsibilities
+Interfaces
+Dependencies
+Technology recommendations
+Architectural rationale
+</td>
+</tr>
+<tr>
+<td valign="top">
+🗄️ Database Design
+Turn domain concepts into a structured data model.
 Entities
-
 Fields
-
-Data types
-
-Required fields
-
 Relationships
-
-Keys
-
-Indexes
-
-Data dependencies
-
-Example:
-
-Student
-   │
-   ├── Enrollment ─── Course
-   │                    │
-   │                    └── Department
-   │
-   └── Grade
-
-5. API & Module Planning
-
-The system connects domain capabilities to APIs and module boundaries.
-
-Example:
-
-Course Management
-├── POST   /courses
-├── GET    /courses
-├── GET    /courses/{id}
-├── PATCH  /courses/{id}
-└── DELETE /courses/{id}
-
-Enrollment
-├── POST   /enrollments
-├── GET    /students/{id}/courses
-└── DELETE /enrollments/{id}
-
-The objective is not simply to generate endpoints, but to make them meaningful parts of the product architecture.
-
-6. Task & Project Decomposition
-
-Large projects can be divided into actionable engineering work:
-
-Epic
-└── Feature
-    └── Task
-        └── Subtask
-
-Example:
-
-Epic: Course Management
-
-Feature: Course Creation
-
-Task: Design Course Data Model
-├── Define course fields
-├── Define department relationship
-├── Define semester relationship
-└── Add validation rules
-
-Task: Implement Course API
-├── POST /courses
-├── GET /courses
-├── GET /courses/{id}
-├── Validation
-└── Error handling
-
-This turns architecture into an actionable delivery plan.
-
-7. Team Planning
-
-The project can be divided across appropriate roles, such as:
-
-Product Manager
-
-Project Manager
-
-Backend Engineer
-
-Frontend Engineer
-
-AI/ML Engineer
-
-Data Engineer
-
-DevOps Engineer
-
-QA Engineer
-
-UI/UX Designer
-
-Security Engineer
-
-Technical Writer
-
-Tasks can be organized around responsibilities, dependencies, and delivery phases.
-
-8. Dependencies & Delivery Planning
-
-The system can represent relationships between project work items.
-
-Example:
-
-Database Schema
-      ↓
-Backend Models
-      ↓
-API Layer
-      ↓
-Frontend Integration
-      ↓
-Testing
-      ↓
-Documentation
-
-This helps teams understand:
-
-What must happen first
-
-What can happen in parallel
-
-What blocks other work
-
-Where risks exist
-
-How the work can be divided into milestones
-
-9. Traceability
-
-A key design principle is traceability.
-
-A requirement should be traceable through the engineering plan:
-
-Requirement
-     ↓
-Use Case
-     ↓
-Product Feature
-     ↓
-Architecture Component
-     ↓
-Database Entity
-     ↓
+Primary keys
+Foreign keys
+Required fields
+Indexing considerations
+Entity relationships
+ER diagrams
+</td>
+<td valign="top">
+🔌 API & Module Planning
+Create an implementation-oriented API surface.
+Endpoints
+HTTP methods
+Resources
+Module boundaries
+Request/response concepts
+Ownership
+Integration points
+API-to-requirement relationships
+</td>
+</tr>
+<tr>
+<td valign="top">
+📋 Project Decomposition
+Break large ideas into manageable implementation work.
+Epics
+Features
+Tasks
+Subtasks
+Priorities
+Estimates
+Dependencies
+Milestones
+Sprint-oriented planning
+</td>
+<td valign="top">
+👥 Team Planning
+Connect technical work with people and responsibilities.
+Engineering roles
+Responsibilities
+Ownership
+Required skills
+Task assignment concepts
+Role dependencies
+Delivery planning
+</td>
+</tr>
+</table>
+---
+🔍 The Intelligence Layer
+The system is designed around structured AI planning, not simple text generation.
+```text
+                 ┌─────────────────────┐
+                 │   Natural Language  │
+                 │    Project Idea     │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Requirements        │
+                 │ Analyzer            │
+                 └──────────┬──────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+        Product Model   Architecture   Domain Model
+              │             │             │
+              └─────────────┼─────────────┘
+                            ▼
+                 ┌─────────────────────┐
+                 │ Consistency         │
+                 │ Validator           │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Traceability Engine │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Task / Team Planner │
+                 └─────────────────────┘
+```
+AI components
+Component	Responsibility
+Requirements Analyzer	Extracts and structures requirements
+Architecture Planner	Recommends architecture and components
+Database Planner	Produces domain entities and relationships
+Task Planner	Converts system structure into implementation work
+Consistency Validator	Detects structural contradictions
+Documentation Generator	Produces technical documentation
+Traceability Engine	Connects requirements → design → implementation
+The AI layer is provider-independent, so a deterministic mock provider can be used locally while a real LLM adapter can be introduced behind the same interface.
+---
+🧭 Project Control
+AI Project Architect is designed to let a project be viewed from multiple levels.
+<div align="center">
+IDEA
+↓
+PRODUCT
+↓
+REQUIREMENTS
+↓
+ARCHITECTURE
+↓
+DATABASE
+↓
 API
-     ↓
-Task
-     ↓
-Team Role
+↓
+TASKS
+↓
+TEAM
+↓
+DELIVERY
+</div>
+This means a project manager, architect, developer, or technical researcher can inspect the same system from the perspective most relevant to them.
+---
+🔗 Traceability
+One of the most important concepts is traceability.
+A requirement should not simply exist as text. It should connect to the design and implementation work derived from it.
+```text
+Requirement
+    │
+    ├──────────────► Product Feature
+    │
+    ├──────────────► Architecture Component
+    │
+    ├──────────────► Database Entity
+    │
+    ├──────────────► API Endpoint
+    │
+    └──────────────► Implementation Task
+```
+Example
+```text
+REQ-001
+"Students should be able to enroll in courses."
 
-This helps expose:
-
-Requirements without implementation work
-
-Tasks without a clear purpose
-
-Unused database entities
-
-APIs without meaningful product functionality
-
-Invalid dependencies
-
-Inconsistent architecture decisions
-
-🧠 AI & Intelligence Layer
-
-The AI system uses a provider-independent orchestration architecture with specialized planning stages.
-
-flowchart TB
-    A[Project Idea] --> B[Planning Orchestrator]
-
-    B --> C[Requirements Analyzer]
-    B --> D[Architecture Planner]
-    B --> E[Database Planner]
-    B --> F[Task Planner]
-
-    C --> G[Structured Project Blueprint]
-    D --> G
-    E --> G
-    F --> G
-
-    G --> H[Consistency Validator]
-    H --> I[Documentation Generator]
-    I --> J[Final Project Workspace]
-
-    P[AI Provider Interface] --> B
-    M[Deterministic Mock Provider] --> P
-    L[Real LLM Adapter] --> P
-
-The provider interface allows the local deterministic mock provider to be used during development while keeping the AI layer ready for real LLM integrations.
-
-🏗️ System Architecture
-
-The current high-level system can be represented as:
-
+        │
+        ├── Feature: Course Enrollment
+        │
+        ├── Component: Enrollment Service
+        │
+        ├── Entity: Enrollment
+        │
+        ├── API: POST /courses/{id}/enroll
+        │
+        └── Task: Implement enrollment workflow
+```
+This makes the generated blueprint much easier to audit and reason about.
+---
+🏛️ System Architecture
+```mermaid
 flowchart TB
 
-    U[User]
+    U["User / Project Owner"]
 
-    subgraph FE[Frontend - Next.js / React / TypeScript]
-        UI[Project Workspace]
-        DASH[Dashboard]
-        REQ[Requirements]
-        ARCH[Architecture]
-        DBV[Database]
-        APIX[API Explorer]
-        TASKS[Tasks & Delivery]
-        TEAM[Team]
-        DOCS[Documentation & Export]
-    end
+    UI["Next.js + React UI"]
+    API["FastAPI API Layer"]
 
-    subgraph BE[Backend - FastAPI]
-        ROUTES[REST API /api/v1]
-        PROJECTS[Project Service]
-        PLAN[Planning Orchestrator]
-        VALIDATOR[Consistency Validator]
-        DOCGEN[Documentation Generator]
-    end
+    ORCH["AI Orchestrator"]
 
-    subgraph AI[AI Planning Layer]
-        PROVIDER[AI Provider Interface]
-        MOCK[Deterministic Mock Provider]
-        LLM[Real LLM Adapter]
-        RA[Requirements Analyzer]
-        AP[Architecture Planner]
-        DP[Database Planner]
-        TP[Task Planner]
-    end
+    RA["Requirements Analyzer"]
+    AP["Architecture Planner"]
+    DP["Database Planner"]
+    TP["Task Planner"]
+    CV["Consistency Validator"]
+    TG["Documentation Generator"]
 
-    subgraph DATA[Persistence]
-        DB[(SQLite)]
-        MIG[Alembic Migrations]
-    end
+    DB[("SQLite / PostgreSQL")]
+    EXP["Export Layer"]
 
     U --> UI
-    UI --> DASH
-    UI --> REQ
-    UI --> ARCH
-    UI --> DBV
-    UI --> APIX
-    UI --> TASKS
-    UI --> TEAM
-    UI --> DOCS
+    UI --> API
+    API --> ORCH
 
-    UI --> ROUTES
-    ROUTES --> PROJECTS
-    ROUTES --> PLAN
-    ROUTES --> VALIDATOR
-    ROUTES --> DOCGEN
+    ORCH --> RA
+    ORCH --> AP
+    ORCH --> DP
+    ORCH --> TP
+    ORCH --> CV
+    ORCH --> TG
 
-    PLAN --> PROVIDER
-    PROVIDER --> MOCK
-    PROVIDER --> LLM
-    PLAN --> RA
-    PLAN --> AP
-    PLAN --> DP
-    PLAN --> TP
+    API --> DB
+    ORCH --> DB
+    API --> EXP
 
-    PROJECTS --> DB
-    PLAN --> DB
-    VALIDATOR --> DB
-    DOCGEN --> DB
-    MIG --> DB
-
+    CV --> ORCH
+```
+---
 🔄 End-to-End Workflow
+```mermaid
+sequenceDiagram
 
-flowchart LR
-    A[Project Idea] --> B[Project Creation]
-    B --> C[Requirements Analysis]
-    C --> D[Product Structure]
-    D --> E[Architecture Planning]
-    E --> F[Database Design]
-    F --> G[API & Module Planning]
-    G --> H[Task Decomposition]
-    H --> I[Team & Responsibilities]
-    I --> J[Dependencies & Milestones]
-    J --> K[Consistency Validation]
-    K --> L[Documentation]
-    L --> M[Export]
+    participant User
+    participant UI
+    participant API
+    participant AI
+    participant DB
 
-The workflow is designed so that each layer contributes to the next rather than producing isolated AI responses.
+    User->>UI: Enter project idea
+    UI->>API: Create project
+    API->>DB: Persist project
 
-🧩 Product Modules
+    User->>UI: Start analysis
+    UI->>API: Generate blueprint
+    API->>AI: Analyze project
 
-Module
+    AI->>AI: Requirements
+    AI->>AI: Product structure
+    AI->>AI: Architecture
+    AI->>AI: Database
+    AI->>AI: APIs
+    AI->>AI: Tasks
+    AI->>AI: Validate consistency
 
-Purpose
-
-Project Workspace
-
-Central place for creating and managing projects
-
-Requirements
-
-Requirements, actors, use cases, risks, and constraints
-
-Product Structure
-
-Product areas, features, and capabilities
-
-Architecture
-
-Components, services, modules, and boundaries
-
-Database
-
-Entities, fields, relationships, and data dependencies
-
-API Explorer
-
-API and module interface planning
-
-Tasks
-
-Epics, features, tasks, subtasks, and delivery work
-
-Team
-
-Roles and responsibility areas
-
-Dependencies
-
-Ordering and relationships between work items
-
-Documentation
-
-Structured technical project documentation
-
-Export
-
-Exporting project outputs
-
-📊 Project Control
-
-AI Project Architect is designed to be more than an AI text generator.
-
-It acts as a project planning and control workspace.
-
-What are we building?
-
-Requirements and product structure.
-
-How should we build it?
-
-Architecture, components, modules, and database design.
-
-What interfaces are needed?
-
-API and module planning.
-
-What work needs to happen?
-
-Epics, features, tasks, and subtasks.
-
-Who should work on it?
-
-Team roles and responsibility areas.
-
-What depends on what?
-
-Dependencies and milestones.
-
-Is the plan consistent?
-
-Consistency and traceability validation.
-
-How do we communicate the design?
-
-Documentation, diagrams, and export.
-
-🗺️ Example: From Idea to Engineering Plan
-
-A project description such as:
-
-Build a university course management platform.
-
-can become:
-
-University Course Management
+    AI->>DB: Persist structured result
+    DB-->>API: Blueprint
+    API-->>UI: Project blueprint
+    UI-->>User: Visual project workspace
+```
+---
+🖼️ Screenshots
+> Put real application screenshots in `docs/screenshots/`.
+> The gallery below is intentionally designed so every preview can be clicked and opened at full resolution.
+<div align="center">
+<a href="docs/screenshots/dashboard.png">
+  <img src="docs/screenshots/dashboard.png" width="31%" alt="Dashboard">
+</a>
+<a href="docs/screenshots/requirements.png">
+  <img src="docs/screenshots/requirements.png" width="31%" alt="Requirements">
+</a>
+<a href="docs/screenshots/architecture.png">
+  <img src="docs/screenshots/architecture.png" width="31%" alt="Architecture">
+</a>
+<br>
+<a href="docs/screenshots/database.png">
+  <img src="docs/screenshots/database.png" width="31%" alt="Database">
+</a>
+<a href="docs/screenshots/tasks.png">
+  <img src="docs/screenshots/tasks.png" width="31%" alt="Tasks">
+</a>
+<a href="docs/screenshots/documentation.png">
+  <img src="docs/screenshots/documentation.png" width="31%" alt="Documentation">
+</a>
+</div>
+Recommended screenshot set
+Preview	File
+🏠 Dashboard	`docs/screenshots/dashboard.png`
+🧠 Requirements	`docs/screenshots/requirements.png`
+🏗️ Architecture	`docs/screenshots/architecture.png`
+🗄️ Database	`docs/screenshots/database.png`
+📋 Tasks	`docs/screenshots/tasks.png`
+📚 Documentation	`docs/screenshots/documentation.png`
+GitHub supports repository-hosted images and relative image paths, making this structure portable inside the repository. citeturn0search3turn0search4
+---
+🧱 Product Modules
+<div align="center">
+Module	Purpose
+🏠 Dashboard	Project overview and generation status
+🧠 Requirements	Structured requirements and actors
+🧩 Product Structure	Features, modules, and domain organization
+🏗️ Architecture	Components, boundaries, and relationships
+🗄️ Database	Entities, fields, and relationships
+🔌 API Explorer	Planned endpoints and module interfaces
+📋 Tasks	Epics, features, tasks, and dependencies
+👥 Team	Roles, ownership, and responsibilities
+📚 Documentation	Generated technical documentation
+📦 Export	Exportable project blueprint
+</div>
+---
+🎨 UI / UX Direction
+The interface is designed around a professional engineering workspace rather than a generic AI chat application.
+Light Theme
+`White` · `Peach` · `Purple`
+```text
+Primary Background    #FFFDFC
+Surface               #FFFFFF
+Peach Accent          #F4A6A0
+Soft Peach            #FCE2DD
+Purple Accent         #8B7BBE
+Deep Purple           #5E4A86
+Text                  #211F26
+Muted Text             #716B78
+Border                 #E9E3EA
+```
+Dark Theme
+`Black` · `Yellow`
+```text
+Background             #0A0A0A
+Surface                #111111
+Elevated Surface       #181818
+Yellow Accent          #F5D547
+Soft Yellow            #FFF1A8
+Text                   #F5F5F5
+Muted Text             #A3A3A3
+Border                 #292929
+```
+The visual language emphasizes hierarchy, information density, clear navigation, subtle interaction feedback, and diagram-friendly layouts.
+---
+🛠️ Technology Stack
+<table>
+<tr>
+<td>
+Backend
+Python 3.11+
+FastAPI
+Pydantic v2
+SQLAlchemy 2
+Alembic
+SQLite
+PostgreSQL-ready architecture
+</td>
+<td>
+Frontend
+Next.js
+React
+TypeScript
+Tailwind CSS
+Responsive application shell
+</td>
+</tr>
+<tr>
+<td>
+AI
+Provider-independent orchestration
+Structured AI outputs
+Requirements analysis
+Architecture planning
+Database planning
+Task planning
+Consistency validation
+</td>
+<td>
+Visualization
+Mermaid
+Architecture diagrams
+ER diagrams
+Workflow diagrams
+Traceability views
+Exportable documentation
+</td>
+</tr>
+</table>
+---
+📡 API Surface
+```text
+/api/v1
 │
-├── Requirements
-│   ├── Student enrollment
-│   ├── Course management
-│   ├── Grade management
-│   ├── Announcements
-│   └── Academic reporting
+├── POST   /projects
+├── GET    /projects
+├── GET    /projects/{project_id}
+├── DELETE /projects/{project_id}
 │
-├── Actors
-│   ├── Student
-│   ├── Teacher
-│   └── Administrator
+├── POST   /projects/{project_id}/analyze
 │
-├── Architecture
-│   ├── Web Frontend
-│   ├── Backend API
-│   ├── Authentication
-│   ├── Notification Service
-│   └── Reporting
+├── GET    /projects/{project_id}/requirements
+├── GET    /projects/{project_id}/architecture
+├── GET    /projects/{project_id}/database
+├── GET    /projects/{project_id}/tasks
+├── POST   /projects/{project_id}/tasks/regenerate
+├── GET    /projects/{project_id}/documentation
+├── GET    /projects/{project_id}/export
+├── GET    /projects/{project_id}/generation-runs
 │
-├── Database
-│   ├── User
-│   ├── Student
-│   ├── Teacher
-│   ├── Course
-│   ├── Department
-│   ├── Semester
-│   ├── Enrollment
-│   └── Grade
-│
-├── APIs
-│   ├── Course APIs
-│   ├── Enrollment APIs
-│   ├── Grade APIs
-│   └── Reporting APIs
-│
-└── Delivery
-    ├── Course Management Epic
-    ├── Enrollment Epic
-    ├── Grade Management Epic
-    ├── Notification Epic
-    └── Reporting Epic
-
-The value is that these outputs are intended to form a connected planning model.
-
-🔗 Traceability Example
-
-For a requirement such as:
-
-Students can enroll in courses.
-
-the project model can conceptually trace:
-
-Requirement
-    │
-    ▼
-Use Case: Enroll in Course
-    │
-    ▼
-Feature: Enrollment Management
-    │
-    ▼
-Component: Enrollment Service
-    │
-    ├── Database: Enrollment
-    │
-    ├── Database: Student
-    │
-    ├── Database: Course
-    │
-    └── API: POST /enrollments
-             │
-             ▼
-        Implementation Task
-             │
-             ▼
-        Backend Engineer
-
-This creates a much stronger relationship between product intent and engineering execution.
-
-🗄️ Data Model
-
-The core application persistence is organized around projects and their generated planning artifacts.
-
+└── GET    /health
+```
+---
+🗃️ Data Model
+```mermaid
 erDiagram
 
     PROJECT ||--o{ REQUIREMENT : contains
     PROJECT ||--o{ ARCHITECTURE_PLAN : has
     PROJECT ||--o{ DATABASE_ENTITY : defines
-    DATABASE_ENTITY ||--o{ DATABASE_FIELD : contains
     PROJECT ||--o{ TASK : contains
-    PROJECT ||--o{ TEAM_ROLE : defines
-    PROJECT ||--o{ DEPENDENCY : contains
+    PROJECT ||--o{ TEAM_ROLE : needs
+    PROJECT ||--o{ DEPENDENCY : includes
     PROJECT ||--o{ DOCUMENT : generates
     PROJECT ||--o{ GENERATION_RUN : records
 
-    PROJECT {
-        uuid id
-        string name
-        text description
-        datetime created_at
-        datetime updated_at
-    }
-
-    REQUIREMENT {
-        uuid id
-        uuid project_id
-        string type
-        string title
-        text description
-        string priority
-    }
-
-    ARCHITECTURE_PLAN {
-        uuid id
-        uuid project_id
-        string component
-        text description
-    }
-
-    DATABASE_ENTITY {
-        uuid id
-        uuid project_id
-        string name
-        text description
-    }
-
-    DATABASE_FIELD {
-        uuid id
-        uuid entity_id
-        string name
-        string data_type
-        boolean required
-    }
-
-    TASK {
-        uuid id
-        uuid project_id
-        string title
-        string type
-        string status
-    }
-
-    TEAM_ROLE {
-        uuid id
-        uuid project_id
-        string role
-        text responsibility
-    }
-
-    DOCUMENT {
-        uuid id
-        uuid project_id
-        string type
-        text content
-    }
-
-    GENERATION_RUN {
-        uuid id
-        uuid project_id
-        string status
-        datetime created_at
-    }
-
-🔌 API Surface
-
-The application exposes a versioned REST API under:
-
-/api/v1
-
-Current project-oriented endpoints include:
-
-POST   /projects
-GET    /projects
-GET    /projects/{project_id}
-DELETE /projects/{project_id}
-
-POST   /projects/{project_id}/analyze
-
-GET    /projects/{project_id}/requirements
-GET    /projects/{project_id}/architecture
-GET    /projects/{project_id}/database
-GET    /projects/{project_id}/tasks
-
-POST   /projects/{project_id}/tasks/regenerate
-
-GET    /projects/{project_id}/documentation
-GET    /projects/{project_id}/export
-
-GET    /projects/{project_id}/generation-runs
-
-GET    /health
-
-The API layer is separated from the AI planning layer so the application can evolve without tightly coupling the interface to the generation engine.
-
-🖥️ User Experience
-
-The product is organized as a project workspace, not simply a chat window.
-
-Conceptually:
-
-                    AI PROJECT ARCHITECT
-                            │
-        ┌───────────────────┴───────────────────┐
-        │                                       │
-   PROJECT WORKSPACE                       AI GENERATION
-        │                                       │
-        ├── Requirements                        │
-        ├── Product Structure                   │
-        ├── Architecture                        │
-        ├── Database                            │
-        ├── API Explorer                        │
-        ├── Tasks                               │
-        ├── Team                                │
-        ├── Documentation                       │
-        └── Export                              │
-
-Visual Direction
-
-Light Theme
-
-White + Peach + Purple
-
-Dark Theme
-
-Black + Yellow
-
-The interface is intended to emphasize:
-
-clear information hierarchy
-
-structured cards and tables
-
-project navigation
-
-diagrams
-
-generation states
-
-actionable engineering information
-
-readable technical content
-
-🔐 Reliability & Security
-
-The system includes a reliability-oriented planning pipeline.
-
-Structured AI Outputs
-
-Planning results use typed schemas rather than relying only on free-form text.
-
-Validation
-
-Generated outputs can be checked for:
-
-malformed structures
-
-invalid references
-
-missing relationships
-
-invalid roles
-
-requirement-to-task coverage
-
-dependency cycles
-
-inconsistent entities
-
-Security-Oriented Design
-
-The local architecture considers:
-
-environment-based secrets
-
-input validation
-
-restricted CORS
-
-parameterized database access
-
-safe export filenames
-
-generated content treated as untrusted
-
-no shell execution from generated or user-provided text
-
-🛠️ Technology Stack
-
-Backend
-
-Python 3.11+
-
-FastAPI
-
-Pydantic v2
-
-SQLAlchemy 2
-
-Alembic
-
-SQLite for local development
-
-PostgreSQL-ready architecture for future environments
-
-Frontend
-
-Next.js
-
-React
-
-TypeScript
-
-Tailwind CSS
-
-AI
-
-Provider-independent AI interface
-
-Deterministic mock provider
-
-Requirements Analyzer
-
-Architecture Planner
-
-Database Planner
-
-Task Planner
-
-Consistency Validator
-
-Documentation Generator
-
-Real LLM adapter architecture
-
-Engineering
-
-REST API
-
-Typed schemas
-
-Database migrations
-
-Automated tests
-
-Linting
-
-Type checking
-
-Build verification
-
-Security-oriented validation
-
-📁 High-Level Project Structure
-
-AI Project Architect/
+    DATABASE_ENTITY ||--o{ DATABASE_FIELD : contains
+
+    TASK }o--o{ REQUIREMENT : traces_to
+    TASK }o--o{ TEAM_ROLE : assigned_to
+    TASK }o--o{ TASK : depends_on
+```
+---
+🧪 Validation & Reliability
+The system is designed to validate generated structures rather than blindly trusting AI output.
+Current validation concepts
+Typed Pydantic outputs
+Structured generation
+Input validation
+Output validation
+Requirement-to-task coverage
+Entity usage checks
+Role validation
+Required-field validation
+Dependency cycle detection
+Persistence checks
+Reference integrity
+Safe export handling
+Explicit assumptions
+Limited retries
+---
+🔐 Security Principles
+Even though the project is currently focused on local development and portfolio use, its architecture follows strong engineering principles.
+No secrets committed to Git
+Environment-variable based configuration
+Restricted CORS
+ORM / parameterized database access
+Generated content treated as untrusted
+Prompt-injection awareness
+Safe filename handling
+No arbitrary shell execution from generated text
+Input size and format validation
+Rate-limit-ready architecture
+---
+🚀 Quick Start
+<details>
+<summary><strong>1. Clone the repository</strong></summary>
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd <YOUR_REPOSITORY_DIRECTORY>
+```
+</details>
+<details>
+<summary><strong>2. Start the backend</strong></summary>
+```bash
+cd backend
+python -m venv .venv
+```
+Activate the environment and install the backend dependencies according to the repository's current setup.
+Then start FastAPI using the project's documented command.
+</details>
+<details>
+<summary><strong>3. Start the frontend</strong></summary>
+```bash
+cd frontend
+npm install
+npm run dev
+```
+</details>
+<details>
+<summary><strong>4. Open the application</strong></summary>
+Open the local frontend URL shown by Next.js.
+Then:
+```text
+Create Project
+      ↓
+Enter Project Idea
+      ↓
+Generate Blueprint
+      ↓
+Review Requirements
+      ↓
+Inspect Architecture
+      ↓
+Inspect Database
+      ↓
+Explore APIs
+      ↓
+Review Tasks & Team
+      ↓
+Open Documentation
+      ↓
+Export Blueprint
+```
+</details>
+> Exact commands should always follow the repository's current README and environment configuration.
+---
+🧪 Example Project
+University Course Management System
+Input:
+> Build a university platform where students can discover courses, enroll in classes, instructors manage course content, and administrators manage academic data.
+The system can derive:
+```text
+Users
+├── Student
+├── Instructor
+└── Administrator
+
+Features
+├── Course Catalog
+├── Enrollment
+├── Course Management
+├── Academic Records
+└── Administration
+
+Architecture
+├── User Module
+├── Course Module
+├── Enrollment Module
+├── Academic Module
+└── Administration Module
+
+Database
+├── User
+├── Course
+├── Enrollment
+├── Instructor
+└── AcademicRecord
+
+Tasks
+├── Design enrollment workflow
+├── Implement course API
+├── Create enrollment schema
+├── Implement authorization
+└── Build course dashboard
+```
+The important part is not simply generating these objects — it is maintaining relationships between them.
+---
+🍔 Second Example: Food Delivery
+A second domain can test whether the intelligence layer generalizes beyond academic systems.
+```text
+Customer
+Restaurant
+Courier
+Order
+Menu
+Payment
+Delivery
+Notification
+```
+Possible architecture:
+```text
+Customer App
+     │
+     ▼
+API Gateway
+     │
+ ┌───┼───────────────┐
+ ▼   ▼               ▼
+Order Service   Restaurant   Payment
+                     │
+                     ▼
+                Delivery
+                     │
+                     ▼
+                Notification
+```
+---
+📊 What Makes It Different?
+Traditional AI Generator	AI Project Architect
+Generates text	Generates structured project models
+One-shot output	Connected planning workflow
+Hard to validate	Consistency validation
+Requirements isolated	Traceable requirements
+Generic architecture	Domain-aware architecture planning
+Manual task breakdown	Structured decomposition
+No project relationships	Requirements → design → tasks
+Chat-oriented	Engineering workspace
+Static explanation	Visual project blueprint
+---
+🗺️ Roadmap
+```text
+                         ┌──────────────────────┐
+                         │     Current MVP      │
+                         └──────────┬───────────┘
+                                    │
+                  ┌─────────────────┼─────────────────┐
+                  ▼                 ▼                 ▼
+            Real LLMs         Rich Diagrams     Editable Plans
+                  │                 │                 │
+                  └─────────────────┼─────────────────┘
+                                    ▼
+                           GitHub Repository
+                                Analysis
+                                    │
+                                    ▼
+                         Engineering Intelligence
+                                    │
+                                    ▼
+                           Collaboration Layer
+                                    │
+                                    ▼
+                         Enterprise Workflows
+```
+Planned directions
+Real LLM providers
+Streaming generation
+Rich interactive diagrams
+Editable generated plans
+Authentication
+Project ownership
+Team collaboration
+Templates
+GitHub import
+Repository analysis
+Architecture drift detection
+Issue planning
+Pull-request planning
+Autonomous engineering workflows
+Enterprise-oriented controls
+---
+🧠 Long-Term Vision
+The long-term goal is to move beyond:
+> **"Generate me a software architecture."**
+toward:
+> **"Understand this project, reason about its structure, keep its plan consistent, monitor implementation drift, and help the team move from idea to execution."**
+That means AI Project Architect can evolve into an intelligent engineering control layer connecting:
+```text
+Idea
+ ↓
+Requirements
+ ↓
+Product
+ ↓
+Architecture
+ ↓
+Data
+ ↓
+APIs
+ ↓
+Implementation
+ ↓
+Tasks
+ ↓
+Team
+ ↓
+Repository
+ ↓
+Issues
+ ↓
+Pull Requests
+ ↓
+Project Intelligence
+```
+---
+📁 Suggested Repository Structure
+```text
+AI-Project-Architect/
 │
 ├── backend/
 │   ├── app/
-│   │   ├── api/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── ai/
-│   │   └── core/
-│   ├── migrations/
-│   └── tests/
+│   ├── tests/
+│   ├── alembic/
+│   └── requirements/
 │
 ├── frontend/
 │   ├── app/
 │   ├── components/
 │   ├── lib/
-│   └── styles/
+│   └── public/
 │
 ├── docs/
+│   ├── screenshots/
+│   │   ├── dashboard.png
+│   │   ├── requirements.png
+│   │   ├── architecture.png
+│   │   ├── database.png
+│   │   ├── tasks.png
+│   │   └── documentation.png
+│   └── diagrams/
 │
-├── .env.example
 ├── README.md
-└── docker-compose.yml
-
-The exact implementation may evolve, but the architecture is intentionally modular so new planners, AI providers, views, integrations, and collaboration features can be introduced independently.
-
-🧪 Testing Philosophy
-
-Testing is designed to cover more than whether the application starts.
-
-Unit Tests
-    ↓
-API Tests
-    ↓
-Database Tests
-    ↓
-AI Generation Tests
-    ↓
-Consistency Tests
-    ↓
-Frontend Tests
-    ↓
-Lint / Type Check / Build
-    ↓
-End-to-End Product Scenarios
-
-Two intentionally different domains can be used to evaluate whether the planning engine adapts to the project instead of simply returning generic templates:
-
-University Course Management
-
-Food Delivery
-
-📈 Roadmap
-
-Current — Local MVP
-
-Project creation
-
-Structured project analysis
-
-Requirements
-
-Product structure
-
-Architecture planning
-
-Database planning
-
-API planning
-
-Task decomposition
-
-Team roles
-
-Dependencies
-
-Documentation
-
-Export
-
-Validation
-
-Local persistence
-
-Mock AI provider
-
-Next — Advanced Planning Workspace
-
-Real LLM providers
-
-Streaming generation
-
-Rich interactive diagrams
-
-Editable generated plans
-
-Improved traceability
-
-Stronger domain intelligence
-
-Advanced project templates
-
-More powerful validation
-
-Future — Engineering Intelligence
-
-Authentication
-
-Project ownership
-
-Team collaboration
-
-GitHub import
-
-Repository analysis
-
-Codebase-to-architecture mapping
-
-Architecture drift detection
-
-Issue generation
-
-PR planning
-
-Autonomous engineering workflows
-
-Enterprise project intelligence
-
-🌐 Long-Term Vision
-
-The long-term goal is to evolve AI Project Architect from an AI project planner into an AI engineering control layer.
-
-Instead of only answering:
-
-How should I build this project?
-
-the system should eventually help answer:
-
-What is this system, why is it designed this way, what needs to be built, who should build it, what depends on what, what has changed, what is currently broken, and what should happen next?
-
-The broader vision is:
-
-Product Thinking
-       ↓
-Software Architecture
-       ↓
-Engineering Planning
-       ↓
-Team Coordination
-       ↓
-Implementation
-       ↓
-Validation
-       ↓
-Continuous Project Intelligence
-
-🧭 Design Principle
-
-A software project should be understandable as one connected system.
-
-Requirements should influence architecture.
-
-Architecture should influence database design.
-
-Database and architecture should influence APIs.
-
-APIs and features should influence tasks.
-
-Tasks should map to responsibilities.
-
-Dependencies should influence delivery order.
-
-And all major artifacts should remain traceable back to the original project intent.
-
-That is the foundation of AI Project Architect.
-
-📜 License
-
-This project is currently intended as a local development and portfolio project.
-
-Add the repository's actual license here once the licensing decision is finalized.
+├── LICENSE
+└── .gitignore
+```
+---
+📚 Documentation Strategy
+The README provides the high-level product story.
+Detailed technical material can live separately:
+```text
+README.md
+│
+├── Product overview
+├── Visual showcase
+├── Architecture
+├── Capabilities
+└── Quick Start
+
+docs/
+│
+├── architecture.md
+├── api.md
+├── ai-system.md
+├── testing.md
+├── deployment.md
+└── screenshots/
+```
+For a GitHub repository, keeping the main README focused while moving very long technical documentation into `docs/` keeps the landing page cleaner. GitHub also provides an automatic outline for headings in rendered Markdown. citeturn0search4
+---
+🧭 Navigation
+<div align="center">
+⬆ Back to Top ·
+🧠 Capabilities ·
+🏗️ Architecture ·
+🖼️ Screenshots ·
+🚀 Quick Start ·
+🗺️ Roadmap
+</div>
+---
+⭐ Project Philosophy
+> **Good software starts with a clear model of the problem.**
+AI Project Architect is built around the idea that AI should not only produce answers.
+It should help teams structure problems, connect decisions, expose dependencies, validate assumptions, and turn ideas into executable engineering plans.
+---
+<div align="center">
+🧠 AI Project Architect
+Understand the idea.  
+Design the system.  
+Organize the work.  
+Control the project.
+<br>
+⭐ If this project is useful or interesting, consider starring the repository.
+</div>
