@@ -140,7 +140,10 @@ class ProjectService:
         if search:
             term = search.lower()
             items = [item for item in items if term in f"{item.path} {item.purpose} {item.module}".lower()]
-        return [APIOut.model_validate(item) for item in items]
+        task_keys = [item.task_key for item in items if item.task_key]
+        assigned_tasks = db.scalars(select(Task).options(selectinload(Task.assignments).selectinload(TaskAssignment.person)).where(Task.project_id == project_id, Task.task_key.in_(task_keys))).all() if task_keys else []
+        owner_by_task = {task.task_key: task.assignments[0].person.name for task in assigned_tasks if task.assignments}
+        return [APIOut.model_validate({**APIOut.model_validate(item).model_dump(), "owner_name": owner_by_task.get(item.task_key, item.owner_name)}) for item in items]
 
     def traceability(self, db: Session, project_id: UUID) -> list[TraceabilityLink]:
         project = self.get(db, project_id)

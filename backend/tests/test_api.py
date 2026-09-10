@@ -101,7 +101,10 @@ def test_workspace_seed_and_intelligence_relationships(client):
     assert client.get(f"/api/v1/projects/{project_id}/milestones").json()
     assert client.get(f"/api/v1/projects/{project_id}/risks").json()
     assert client.get(f"/api/v1/projects/{project_id}/features").json()
-    assert client.get(f"/api/v1/projects/{project_id}/apis").json()
+    api_items = client.get(f"/api/v1/projects/{project_id}/apis").json()
+    assert api_items
+    assert any(item["module"] == "Payments" for item in api_items)
+    assert any(item["owner_name"] == "Sara Rahimi" for item in api_items)
     traceability = client.get(f"/api/v1/projects/{project_id}/traceability")
     assert traceability.status_code == 200
     assert all(item["feature_name"] for item in traceability.json())
