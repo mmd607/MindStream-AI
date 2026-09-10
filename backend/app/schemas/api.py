@@ -228,6 +228,8 @@ class ActivityOut(APIModel):
     action: str
     category: str
     details: str
+    entity_type: str | None = None
+    entity_id: UUID | None = None
     created_at: datetime
 
 
@@ -239,6 +241,8 @@ class MilestoneOut(APIModel):
     status: str
     progress: int
     due_label: str
+    owner_name: str
+    related_task_keys: list = []
 
 
 class RiskOut(APIModel):
@@ -247,8 +251,10 @@ class RiskOut(APIModel):
     title: str
     description: str
     severity: str
+    probability: str
     status: str
     owner_name: str
+    mitigation: str
 
 
 class FeatureOut(APIModel):

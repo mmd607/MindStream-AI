@@ -107,6 +107,8 @@ class Activity(Base):
     action: Mapped[str] = mapped_column(String(180), nullable=False)
     category: Mapped[str] = mapped_column(String(40), default="project", nullable=False)
     details: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    entity_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    entity_id: Mapped[UUID | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     project: Mapped[Project] = relationship(back_populates="activities")
 
@@ -121,6 +123,8 @@ class Milestone(Base):
     status: Mapped[str] = mapped_column(String(30), default="planned", nullable=False)
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     due_label: Mapped[str] = mapped_column(String(80), default="Next sprint", nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(120), default="Unassigned", nullable=False)
+    related_task_keys: Mapped[list] = mapped_column(JSON, default=list)
     project: Mapped[Project] = relationship(back_populates="milestones")
 
 
@@ -132,8 +136,10 @@ class ProjectRisk(Base):
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     severity: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    probability: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
     owner_name: Mapped[str] = mapped_column(String(120), default="Unassigned", nullable=False)
+    mitigation: Mapped[str] = mapped_column(Text, default="Review mitigation at the next project checkpoint.", nullable=False)
     project: Mapped[Project] = relationship(back_populates="project_risks")
 
 

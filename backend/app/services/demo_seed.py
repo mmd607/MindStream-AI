@@ -66,14 +66,14 @@ def seed_demo_data(db: Session) -> None:
             project.status = status
         if not db.scalar(select(Milestone.id).where(Milestone.project_id == project.id)):
             db.add_all([
-                Milestone(project_id=project.id, title="Scope and discovery", description="Align users, workflows, and success measures.", status="done", progress=100, due_label="Complete"),
-                Milestone(project_id=project.id, title="Core workflow", description="Deliver the highest-value product path.", status="in_progress", progress=min(progress, 82), due_label="This sprint"),
-                Milestone(project_id=project.id, title="Release readiness", description="Validate quality, documentation, and operational readiness.", status="planned", progress=18, due_label="Next month"),
+                Milestone(project_id=project.id, title="Scope and discovery", description="Align users, workflows, and success measures.", status="done", progress=100, due_label="Complete", owner_name=member_names[0], related_task_keys=["T1"]),
+                Milestone(project_id=project.id, title="Core workflow", description="Deliver the highest-value product path.", status="in_progress", progress=min(progress, 82), due_label="This sprint", owner_name=member_names[min(1, len(member_names) - 1)], related_task_keys=["T2", "T3", "T4"]),
+                Milestone(project_id=project.id, title="Release readiness", description="Validate quality, documentation, and operational readiness.", status="planned", progress=18, due_label="Next month", owner_name=member_names[-1], related_task_keys=["T5", "T6"]),
             ])
         if not db.scalar(select(ProjectRisk.id).where(ProjectRisk.project_id == project.id)):
             db.add_all([
-                ProjectRisk(project_id=project.id, title="Uncovered edge cases", description="Some user journeys still need explicit acceptance criteria.", severity="medium", status="open", owner_name=member_names[0]),
-                ProjectRisk(project_id=project.id, title="Delivery dependency", description="An external integration may affect the next milestone.", severity="high" if status == "at_risk" else "low", status="open" if status == "at_risk" else "monitoring", owner_name=member_names[min(1, len(member_names) - 1)]),
+                ProjectRisk(project_id=project.id, title="Uncovered edge cases", description="Some user journeys still need explicit acceptance criteria.", severity="medium", probability="medium", status="open", owner_name=member_names[0], mitigation="Review acceptance criteria with the product owner before implementation."),
+                ProjectRisk(project_id=project.id, title="Delivery dependency", description="An external integration may affect the next milestone.", severity="high" if status == "at_risk" else "low", probability="high" if status == "at_risk" else "low", status="open" if status == "at_risk" else "monitoring", owner_name=member_names[min(1, len(member_names) - 1)], mitigation="Document the fallback path and confirm the integration contract early."),
             ])
         if not db.scalar(select(Report.id).where(Report.project_id == project.id)):
             db.add(Report(project_id=project.id, report_type="health", title="Weekly Project Health", summary=f"{name} is currently {status.replace('_', ' ')} with a health score of {health}.", generated_by="mock-ai", status="generated", score=health, content=f"# Weekly Project Health\n\n{name} has a health score of **{health} / 100**.\n\nReview the open delivery risks before the next checkpoint."))

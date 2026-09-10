@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import inspect
 
 from app.api.v1.routes.health import router as health_router
 from app.api.v1.routes.projects import router as project_router
@@ -13,10 +14,29 @@ from app import models  # noqa: F401 - registers all ORM models
 from app.services.demo_seed import seed_demo_data
 
 
+def ensure_compatible_schema() -> None:
+    """Add newly optional SQLite columns without requiring deletion of an existing demo DB."""
+    if not settings.database_url.startswith("sqlite"):
+        return
+    additions = {
+        "activities": {"entity_type": "VARCHAR(40)", "entity_id": "TEXT"},
+        "milestones": {"owner_name": "VARCHAR(120) NOT NULL DEFAULT 'Unassigned'", "related_task_keys": "JSON NOT NULL DEFAULT '[]'"},
+        "project_risks": {"probability": "VARCHAR(20) NOT NULL DEFAULT 'medium'", "mitigation": "TEXT NOT NULL DEFAULT 'Review mitigation at the next project checkpoint.'"},
+    }
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        for table, columns in additions.items():
+            existing = {column["name"] for column in inspector.get_columns(table)} if inspector.has_table(table) else set()
+            for name, definition in columns.items():
+                if name not in existing:
+                    connection.exec_driver_sql(f'ALTER TABLE "{table}" ADD COLUMN "{name}" {definition}')
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # This keeps the zero-setup SQLite demo runnable. Production deployments should apply Alembic migrations.
     Base.metadata.create_all(bind=engine)
+    ensure_compatible_schema()
     db = SessionLocal()
     try:
         seed_demo_data(db)
